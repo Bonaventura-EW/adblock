@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Universal Adblock Spoof</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      width: 280px;
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      background: #1e1e22;
+      color: #e8e8ea;
+    }
+    header {
+      padding: 12px 14px;
+      background: #2a2a30;
+      border-bottom: 1px solid #38383f;
+    }
+    header h1 { margin: 0; font-size: 14px; font-weight: 600; }
+    header .host { margin-top: 4px; font-size: 12px; color: #9aa0a6; word-break: break-all; }
+    .status {
+      margin-top: 8px; display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 11px; font-weight: 600;
+    }
+    .status.on  { background: #18391f; color: #5cd47a; }
+    .status.off { background: #3a1f1f; color: #f08585; }
+    section { padding: 12px 14px; }
+    .row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 0; gap: 10px;
+    }
+    .row + .row { border-top: 1px solid #2c2c32; }
+    .row label { flex: 1; cursor: pointer; }
+    .row small { display: block; color: #8a9096; font-size: 11px; margin-top: 2px; }
+    .switch { position: relative; width: 38px; height: 22px; flex: none; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0; background: #4a4a52; border-radius: 22px;
+      transition: .15s; cursor: pointer;
+    }
+    .slider::before {
+      content: ""; position: absolute; height: 16px; width: 16px; left: 3px; top: 3px;
+      background: #fff; border-radius: 50%; transition: .15s;
+    }
+    .switch input:checked + .slider { background: #2f7d3b; }
+    .switch input:checked + .slider::before { transform: translateX(16px); }
+    .hint {
+      margin: 4px 14px 12px; padding: 8px 10px; background: #2a2a30; border-radius: 6px;
+      font-size: 11px; color: #c6a15c; display: none;
+    }
+    .hint.show { display: block; }
+    footer {
+      padding: 10px 14px; border-top: 1px solid #38383f; display: flex;
+      align-items: center; justify-content: space-between; color: #9aa0a6; font-size: 12px;
+    }
+    button.reset {
+      background: none; border: 1px solid #4a4a52; color: #c6c6cc; border-radius: 6px;
+      padding: 3px 8px; cursor: pointer; font-size: 11px;
+    }
+    button.reset:hover { background: #2c2c32; }
+    .unsupported { color: #8a9096; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Universal Adblock Spoof</h1>
+    <div class="host" id="host">…</div>
+    <span class="status on" id="status">aktywne na tej stronie</span>
+  </header>
+
+  <section id="controls">
+    <div class="row">
+      <label for="domainToggle">
+        Aktywne na tej domenie
+        <small id="domainHost">—</small>
+      </label>
+      <span class="switch">
+        <input type="checkbox" id="domainToggle" checked>
+        <span class="slider"></span>
+      </span>
+    </div>
+    <div class="row">
+      <label for="urlToggle">
+        Aktywne na tym adresie
+        <small>tylko ta konkretna strona</small>
+      </label>
+      <span class="switch">
+        <input type="checkbox" id="urlToggle" checked>
+        <span class="slider"></span>
+      </span>
+    </div>
+  </section>
+
+  <div class="hint" id="hint">Odśwież stronę (F5), aby zastosować zmianę.</div>
+
+  <footer>
+    <span>Usunięte ściany: <strong id="count">0</strong></span>
+    <button class="reset" id="reset">Reset licznika</button>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>

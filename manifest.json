@@ -1,49 +1,24 @@
 {
   "manifest_version": 3,
   "name": "Universal Adblock Spoof",
-  "version": "5.1",
-  "description": "Spoof detekcji adblock dla polskich portali informacyjnych",
+  "version": "6.0",
+  "description": "Uniwersalny spoof detekcji adblocka — działa na każdej stronie, wyłączalny per domena/adres.",
   "permissions": [
     "scripting",
+    "storage",
     "declarativeNetRequest"
   ],
   "host_permissions": [
-    "*://*.onet.pl/*",
-    "*://*.money.pl/*",
-    "*://*.wp.pl/*",
-    "*://*.o2.pl/*",
-    "*://*.sportowefakty.wp.pl/*",
-    "*://*.businessinsider.com.pl/*",
-    "*://*.abczdrowie.pl/*",
-    "*://*.kurierlubelski.pl/*",
-    "*://*.dziennikzachodni.pl/*",
-    "*://*.gazetakrakowska.pl/*",
-    "*://*.filmweb.pl/*",
-    "*://*.jastrzabpost.pl/*",
-    "*://*.parenting.pl/*",
-    "*://*.pudelek.pl/*",
-    "*://*.teleshow.pl/*",
-    "*://*.autokult.pl/*",
-    "*://*.benchmark.pl/*",
-    "*://*.polygamia.pl/*",
-    "*://*.gry-online.pl/*",
-    "*://*.naszemiasto.pl/*",
-    "*://*.gazeta.pl/*",
-    "*://*.rmf24.pl/*",
-    "*://*.tvn24.pl/*",
-    "*://*.interia.pl/*",
-    "*://*.fakt.pl/*",
-    "*://*.gazetaprawna.pl/*",
-    "*://*.parkiet.com/*",
-    "*://*.auto-swiat.pl/*",
-    "*://securepubads.g.doubleclick.net/*",
-    "*://www.googletagservices.com/*"
+    "*://*/*"
   ],
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
   },
   "action": {
     "default_icon": {
@@ -52,43 +27,16 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     },
-    "default_title": "Universal Adblock Spoof"
+    "default_title": "Universal Adblock Spoof",
+    "default_popup": "popup.html"
   },
   "web_accessible_resources": [
     {
       "resources": [
-        "fake-scripts/*.js",
-        "injected.js"
+        "fake-scripts/*.js"
       ],
       "matches": [
-        "*://*.onet.pl/*",
-        "*://*.money.pl/*",
-        "*://*.wp.pl/*",
-        "*://*.o2.pl/*",
-        "*://*.sportowefakty.wp.pl/*",
-        "*://*.businessinsider.com.pl/*",
-        "*://*.abczdrowie.pl/*",
-        "*://*.kurierlubelski.pl/*",
-        "*://*.dziennikzachodni.pl/*",
-        "*://*.gazetakrakowska.pl/*",
-        "*://*.filmweb.pl/*",
-        "*://*.jastrzabpost.pl/*",
-        "*://*.parenting.pl/*",
-        "*://*.pudelek.pl/*",
-        "*://*.teleshow.pl/*",
-        "*://*.autokult.pl/*",
-        "*://*.benchmark.pl/*",
-        "*://*.polygamia.pl/*",
-        "*://*.gry-online.pl/*",
-        "*://*.naszemiasto.pl/*",
-        "*://*.gazeta.pl/*",
-        "*://*.rmf24.pl/*",
-        "*://*.tvn24.pl/*",
-        "*://*.interia.pl/*",
-        "*://*.fakt.pl/*",
-        "*://*.gazetaprawna.pl/*",
-        "*://*.parkiet.com/*",
-        "*://*.auto-swiat.pl/*"
+        "*://*/*"
       ]
     }
   ],
@@ -100,45 +48,5 @@
         "path": "rules/rules.json"
       }
     ]
-  },
-  "content_scripts": [
-    {
-      "matches": [
-        "*://*.onet.pl/*",
-        "*://*.money.pl/*",
-        "*://*.wp.pl/*",
-        "*://*.o2.pl/*",
-        "*://*.sportowefakty.wp.pl/*",
-        "*://*.businessinsider.com.pl/*",
-        "*://*.abczdrowie.pl/*",
-        "*://*.kurierlubelski.pl/*",
-        "*://*.dziennikzachodni.pl/*",
-        "*://*.gazetakrakowska.pl/*",
-        "*://*.filmweb.pl/*",
-        "*://*.jastrzabpost.pl/*",
-        "*://*.parenting.pl/*",
-        "*://*.pudelek.pl/*",
-        "*://*.teleshow.pl/*",
-        "*://*.autokult.pl/*",
-        "*://*.benchmark.pl/*",
-        "*://*.polygamia.pl/*",
-        "*://*.gry-online.pl/*",
-        "*://*.naszemiasto.pl/*",
-        "*://*.gazeta.pl/*",
-        "*://*.rmf24.pl/*",
-        "*://*.tvn24.pl/*",
-        "*://*.interia.pl/*",
-        "*://*.fakt.pl/*",
-        "*://*.gazetaprawna.pl/*",
-        "*://*.parkiet.com/*",
-        "*://*.auto-swiat.pl/*"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "run_at": "document_start",
-      "all_frames": true,
-      "world": "MAIN"
-    }
-  ]
+  }
 }
