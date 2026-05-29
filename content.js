@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.0
+// Universal Adblock Spoof v6.1
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -286,7 +286,7 @@
           : '{"ads":[],"status":"ok","adblock":false}';
         return Promise.resolve(new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } }));
       }
-      return _fetch.apply(this, arguments);
+      return _fetch.apply(window, arguments);
     };
   }
 
@@ -319,7 +319,7 @@
   var BAIT = ['adsbox', 'adsbygoogle', 'pub_300x250', 'pub_728x90'];
   var _gcs = window.getComputedStyle;
   window.getComputedStyle = function (el, pseudo) {
-    var style = _gcs.call(this, el, pseudo);
+    var style = _gcs.call(window, el, pseudo);
     if (el && el.className && typeof el.className === 'string') {
       var classes = el.className.split(/\s+/).concat([el.id || '']);
       if (classes.some(function (c) { return BAIT.indexOf(c) !== -1; })) {
