@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1, "priority": 1,
+    "action": { "type": "redirect", "redirect": { "url": "data:application/json,{\"ads\":[],\"status\":\"ok\",\"adblock\":false}" } },
+    "condition": { "urlFilter": "*/ads/targeted*", "resourceTypes": ["xmlhttprequest", "other"] }
+  },
+  {
+    "id": 2, "priority": 1,
+    "action": { "type": "redirect", "redirect": { "url": "data:application/json,{\"ads\":[],\"status\":\"ok\",\"adblock\":false}" } },
+    "condition": { "urlFilter": "*/api/v1/ads*", "resourceTypes": ["xmlhttprequest", "other"] }
+  },
+  {
+    "id": 3, "priority": 1,
+    "action": { "type": "redirect", "redirect": { "url": "data:application/json,{\"adblock\":false,\"status\":\"ok\"}" } },
+    "condition": { "urlFilter": "*adblock*check*", "resourceTypes": ["xmlhttprequest", "other"] }
+  },
+  {
+    "id": 4, "priority": 1,
+    "action": { "type": "redirect", "redirect": { "url": "data:application/json,{\"adblock\":false,\"status\":\"ok\"}" } },
+    "condition": { "urlFilter": "*adcheck*", "resourceTypes": ["xmlhttprequest", "other"] }
+  },
+  {
+    "id": 5, "priority": 2,
+    "action": { "type": "redirect", "redirect": { "extensionPath": "/fake-scripts/gpt.js" } },
+    "condition": { "urlFilter": "securepubads.g.doubleclick.net/tag/js/gpt.js", "resourceTypes": ["script"] }
+  },
+  {
+    "id": 6, "priority": 2,
+    "action": { "type": "redirect", "redirect": { "extensionPath": "/fake-scripts/gpt.js" } },
+    "condition": { "urlFilter": "www.googletagservices.com/tag/js/gpt.js", "resourceTypes": ["script"] }
+  },
+  {
+    "id": 7, "priority": 2,
+    "action": { "type": "redirect", "redirect": { "extensionPath": "/fake-scripts/pubads_impl.js" } },
+    "condition": { "urlFilter": "*pubads_impl*", "resourceTypes": ["script"] }
+  }
+]
