@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.1
+// Universal Adblock Spoof v6.2
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -104,17 +104,32 @@
             markWall();
             setTimeout(applyWPScreeningCSS, 0);
           }
-          // randvar: globalna funkcja chowająca content po każdym slocie gdy
-          // hasAdblock=true. Blokujemy ją no-opem zanim Script #0 ją przypisze.
+          // randvar: WP wywołuje window[randvar](el, slot, hasAdblock, ...) inline
+          // po każdym slocie. Gdy hasAdblock=true, chowa slot (tekst I obrazki).
+          // Nie robimy no-opa — wtedy obrazki i tekst też zostają schowane (bo
+          // framework zakłada że randvar je "odblokuje"). Zamiast tego:
+          // przechwytujemy przypisanie prawdziwej funkcji i zawsze wołamy ją z
+          // hasAdblock=false → slots działają normalnie, tylko bez ścian.
           if (val && val.randvar) {
             try {
               var rv = val.randvar;
-              var noop = function () {};
+              var _realRv = null;
               Object.defineProperty(window, rv, {
-                get: function () { return noop; },
-                set: function () { /* ignoruj próby nadpisania */ },
-                configurable: false,
-                enumerable: true
+                configurable: true,
+                enumerable: true,
+                get: function () {
+                  if (_realRv) {
+                    return function () {
+                      var args = Array.prototype.slice.call(arguments);
+                      if (args.length > 2) args[2] = false; // hasAdblock=false
+                      return _realRv.apply(this, args);
+                    };
+                  }
+                  return function () {}; // tymczasowy no-op zanim fn zostanie przypisana
+                },
+                set: function (fn) {
+                  if (typeof fn === 'function') _realRv = fn;
+                }
               });
             } catch (e) {}
           }

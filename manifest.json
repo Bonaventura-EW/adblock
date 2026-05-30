@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Universal Adblock Spoof",
-  "version": "6.1",
+  "version": "6.2",
   "description": "Uniwersalny spoof detekcji adblocka — działa na każdej stronie, wyłączalny per domena/adres.",
   "permissions": [
     "scripting",
