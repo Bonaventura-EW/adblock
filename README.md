@@ -37,7 +37,8 @@ agresywne akcje nie odpalają się, dopóki nie pojawi się realna ściana adblo
 - **Sygnatury tekstowe** — frazy PL/EN typu „wyłącz adblocka", „disable your ad
   blocker", „dodaj nas do wyjątków".
 - **Znane obiekty i klasy** — Piano (`window.tp`), WP (`window.WP`,
-  `__INIT_CONFIG__`), klasy `fc-ab-*`, `adblock-wall`, `AdBlockInfo` itd.
+  `__INIT_CONFIG__`), klasy `fc-ab-*`, `adblock-wall`, `AdBlockInfo`,
+  `adblock_new_icon` (toolkitspro, np. `fxmag.pl`) itd.
 - **Heurystyka nakładki** — pełnoekranowy element `position:fixed` o wysokim
   `z-index`, który blokuje przewijanie strony.
 

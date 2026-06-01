@@ -430,6 +430,8 @@
     'dzięki reklamom możesz korzystać', 'dzieki reklamom mozesz korzystac',
     'przejdź na wp.pl', 'dodaj nas do wyjątków', 'dodaj nas do wyjatkow',
     'wyłącz program blokujący', 'umieść naszą stronę na białej liście',
+    'nie widzisz tej strony, bo blokujesz reklamy', 'korzystając z adblocka',
+    'korzystajac z adblocka',
     // EN
     'using adblock', 'using an ad blocker', 'disable adblock', 'disable your ad blocker',
     'turn off your ad blocker', 'pause adblock', 'whitelist', 'whitelisting',
@@ -444,7 +446,10 @@
     '[class*="adblock-info"]', '[class*="AdBlockInfo"]', '[class*="adBlockInfo"]',
     '[class*="adblock-screen"]', '[class*="fc-ab-"]', '.fc-ab-root',
     '[class*="fc-dialog"]', '[id^="tp-"]', '[class*="tp-modal"]',
-    '[class*="tp-backdrop"]', '[data-tp-id]'
+    '[class*="tp-backdrop"]', '[data-tp-id]',
+    // toolkitspro adblock (np. fxmag.pl) — reszta klas modala jest haszowana
+    // per-dzień (SHA256), ale ikona ostrzegawcza ma stałą, jawną nazwę.
+    '[class*="adblock_new_icon"]'
   ];
 
   function textMatchesSignature(el) {
@@ -612,6 +617,28 @@
     });
   }
 
+  // ── toolkitspro adblock (fxmag.pl itp.) ─────────────────────────────────────
+  // Modal renderuje się głęboko w drzewie React, a jego klasy są haszowane
+  // per-dzień (SHA256) — nie da się ich celować selektorem. Jedyną stałą,
+  // jawną klasą jest ikona `adblock_new_icon`. Od niej wspinamy się w górę do
+  // nakładki (position:fixed, wysoki z-index) i usuwamy całą nakładkę.
+  function removeMarkerOverlays() {
+    var markers = document.querySelectorAll('[class*="adblock_new_icon"]');
+    markers.forEach(function (marker) {
+      var node = marker, overlay = null;
+      for (var i = 0; node && node !== document.body && i < 12; i++) {
+        var cs;
+        try { cs = getComputedStyle(node); } catch (e) { cs = null; }
+        if (cs && cs.position === 'fixed' && (parseInt(cs.zIndex) || 0) >= 1000) {
+          overlay = node; // bierz najwyższego pasującego przodka
+        }
+        node = node.parentElement;
+      }
+      if (overlay) { overlay.remove(); reportRemoved(); }
+      else if (marker.parentElement) { marker.remove(); reportRemoved(); }
+    });
+  }
+
   function cleanGeneric() {
     document.querySelectorAll('div[class*="FilmCheaterSection"], div[class*="filmCheaterSection"]').forEach(function (el) {
       el.style.cssText = 'display:none!important;height:0!important;visibility:hidden!important;position:absolute!important;top:-99999px!important;pointer-events:none!important';
@@ -652,6 +679,7 @@
     applyWPScreeningCSS();
     cleanGeneric();
     removeAdblockPopups();
+    removeMarkerOverlays();
     revealArticleContent();
     installGoogletag();
   }
