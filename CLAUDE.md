@@ -109,6 +109,28 @@ Trzy metody (wystarczy jedna):
 - `revealArticleContent()` — odkrywa `article`, `main`, `[class*="article"]`,
   `[class*="Article"]` jeśli schowane inline przez skrypt (nie przez CSS autora).
 
+### fxmag.pl (v6.3) — Next.js/React, dwutorowa detekcja
+
+Kod w chunk `7015-beda8594e24d46d9.js`:
+
+```javascript
+// Check 1 — element #stndz-style wstrzyknięty przez uBlock cosmetic engine
+null !== document.getElementById("stndz-style") ? e(true) : DetectByGoogleAd(cb)
+
+// Check 2 — DetectByGoogleAd
+script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js";
+script.onerror = () => e(true);   // skrypt zablokowany → adblock
+xhr.onload = () => e(xhr.responseURL !== url); // redirect → adblock
+```
+
+Ściana pojawia się z 20-sekundowym opóźnieniem (`setTimeout(show, 20000)`).
+
+**Nasze neutralizacje (content.js `installFxmagNeutraliser`):**
+- MutationObserver usuwa `#stndz-style` natychmiast po pojawieniu się w DOM.
+- MutationObserver przechwytuje `<script src="…adsbygoogle.js">`: `onerror` → no-op, `onload` wywoływane ręcznie.
+- XHR interceptor: `responseURL` mockowany jako `self._surl` (nie wygląda na redirect).
+- `pagead2.googlesyndication.com/pagead/js/adsbygoogle` dodany do `AD_PATTERNS` (fetch-level).
+
 ## Zakres i ograniczenia
 
 - **Paywalle serwerowe** (np. Onet po X akapitach) — rozszerzenie ich NIE obchodzi.

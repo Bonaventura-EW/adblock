@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.2
+// Universal Adblock Spoof v6.3
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -277,7 +277,8 @@
   // ── FETCH / XHR INTERCEPT (dopasowanie po URL — bezpieczne globalnie) ────────
   var AD_PATTERNS = [
     '/ads/targeted', '/api/v1/ads', '/adcheck', '/adblock/check',
-    'tinypass.com', 'piano.io', 'buy.piano.io'
+    'tinypass.com', 'piano.io', 'buy.piano.io',
+    'pagead2.googlesyndication.com/pagead/js/adsbygoogle'
   ];
 
   function pianoAccessResponse() {
@@ -321,6 +322,7 @@
       Object.defineProperty(self, 'status', { get: function () { return 200; } });
       Object.defineProperty(self, 'responseText', { get: function () { return fake; } });
       Object.defineProperty(self, 'response', { get: function () { return fake; } });
+      Object.defineProperty(self, 'responseURL', { get: function () { return self._surl; } });
       setTimeout(function () {
         try { if (typeof self.onreadystatechange === 'function') self.onreadystatechange(); } catch (e) {}
         try { if (typeof self.onload === 'function') self.onload(); } catch (e) {}
@@ -428,6 +430,48 @@
     } catch (e) {}
   })();
 
+  // ── FXMAG / NEXT.JS ADBLOCK DETECTION NEUTRALISER ────────────────────────
+  // fxmag.pl uses two checks:
+  //   1. getElementById("stndz-style") — element injected by uBlock's cosmetic
+  //      filter engine. We remove it immediately so the check returns null.
+  //   2. DetectByGoogleAd — injects <script src="…adsbygoogle.js">, reads
+  //      onerror (blocked → adblock) and XHR responseURL (redirect → adblock).
+  //      We override onerror→noop and fire onload so detection thinks it loaded.
+  (function installFxmagNeutraliser() {
+    function removeStndz() {
+      var el = document.getElementById('stndz-style');
+      if (el) el.parentNode.removeChild(el);
+    }
+
+    function patchAdsbyScript(node) {
+      if (node.tagName !== 'SCRIPT') return;
+      var src = node.src || node.getAttribute('src') || '';
+      if (src.indexOf('adsbygoogle.js') === -1 && src.indexOf('pagead') === -1) return;
+      node.onerror = null;
+      Object.defineProperty(node, 'onerror', { set: function () {}, get: function () { return null; }, configurable: true });
+      setTimeout(function () { try { if (typeof node.onload === 'function') node.onload(); } catch (e) {} }, 50);
+    }
+
+    try {
+      removeStndz();
+      var obs2 = new MutationObserver(function (muts) {
+        muts.forEach(function (m) {
+          m.addedNodes.forEach(function (n) {
+            if (n.nodeType !== 1) return;
+            if (n.id === 'stndz-style') { n.parentNode && n.parentNode.removeChild(n); return; }
+            patchAdsbyScript(n);
+            if (n.querySelectorAll) {
+              n.querySelectorAll('script').forEach(patchAdsbyScript);
+            }
+          });
+        });
+      });
+      var root2 = document.documentElement || document;
+      if (root2) obs2.observe(root2, { childList: true, subtree: true });
+      setTimeout(function () { try { obs2.disconnect(); } catch (e) {} }, 60000);
+    } catch (e) {}
+  })();
+
   // ══════════════════════════════════════════════════════════════════════════
   // DETEKCJA ŚCIANY — decyduje kiedy włączyć warstwę ciężką
   // ══════════════════════════════════════════════════════════════════════════
@@ -445,6 +489,8 @@
     'dzięki reklamom możesz korzystać', 'dzieki reklamom mozesz korzystac',
     'przejdź na wp.pl', 'dodaj nas do wyjątków', 'dodaj nas do wyjatkow',
     'wyłącz program blokujący', 'umieść naszą stronę na białej liście',
+    // PL — fxmag
+    'blokujesz reklamy', 'nie widzisz tej strony', 'korzystając z adblocka',
     // EN
     'using adblock', 'using an ad blocker', 'disable adblock', 'disable your ad blocker',
     'turn off your ad blocker', 'pause adblock', 'whitelist', 'whitelisting',
