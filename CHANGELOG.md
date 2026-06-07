@@ -1,5 +1,37 @@
 # Changelog
 
+## v6.4 (2026-06-07)
+
+### Poprawki
+- **wp.pl — brak pierwszego/głównego zdjęcia (hero)**: framework WP na niektórych
+  artykułach chowa główne zdjęcie wstrzykując **inline** na `<img class="wp-media-image">`
+  styl `display:none!important` (obok `width/height:100%;object-fit:cover`). Zdjęcie
+  jest w pełni załadowane (`complete`, `naturalWidth>0`), ale stan „odsłoń" nie
+  wraca przy aktywnym adblocku → zostaje pusty box i „znika" grafika. To **inny
+  mechanizm niż `randvar`** i niż screening-CSS (zdiagnozowane na żywo w DevTools:
+  cały łańcuch przodków `visible`, sam `<img>` `display:none` inline).
+  - Nowa funkcja `revealMainMedia()` w warstwie ciężkiej: odkrywa **tylko
+    załadowane** zdjęcia (`complete && naturalWidth>0`) w kontenerach treści
+    (`[data-mainmedia-photo]`, `.article-img-placeholder`, `article/main figure`,
+    `article img.wp-media-image`). Niezaładowane lazy-obrazki zostawia loaderowi,
+    nie rusza reklam.
+
+### Dokumentacja / build
+- Dodano `scripts/build-zip.mjs` + `npm run build` — buduje
+  `adblock-vivaldi-v<wersja>.zip` (wersja z `manifest.json`), pakuje tylko pliki
+  rozszerzenia, usuwa stare paczki. **Polityka: po każdej zmianie podbić wersję,
+  dopisać do tego changeloga i przebudować ZIP.**
+
+### Sprostowanie
+- Wpis v6.2 opisywał sygnaturę `randvar` jako `(el, slot, hasAdblock)`. W rzeczywistości
+  to `(element, slot, withPlaceholder, placeholder, options)` — **nie ma parametru
+  `hasAdblock`**; gałąź chowająca slot jest serwerowo szablonowana (`if(<bool>){…display='none'}`)
+  i zależy od `withPlaceholder`. Nasz wrapper wymusza `args[2]=false` (czyli
+  `withPlaceholder=false`), co pomija `registerPlaceholder` i ewentualne ukrycie
+  slotu — działa obronnie, ale opis w v6.2 był nieścisły.
+
+---
+
 ## v6.3 (2026-06-02)
 
 ### Nowe

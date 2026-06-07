@@ -5,6 +5,7 @@
   "description": "Uniwersalny spoof detekcji adblocka (rozszerzenie MV3 do Vivaldi/Chromium).",
   "type": "module",
   "scripts": {
-    "lint": "node scripts/lint.mjs"
+    "lint": "node scripts/lint.mjs",
+    "build": "node scripts/build-zip.mjs"
   }
 }

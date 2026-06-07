@@ -153,7 +153,24 @@ xhr.onload = () => e(xhr.responseURL !== url); // redirect → adblock
 - Pliki ZIP do instalacji manualnej w Vivaldi: `adblock-vivaldi-vX.Y.zip`
   (X.Y = numer wersji, np. `adblock-vivaldi-v6.0.zip`).
 - ZIP zawiera tylko pliki potrzebne do zainstalowania rozszerzenia (bez
-  `scripts/`, `README.md`, `package.json`, `CLAUDE.md`, `_metadata/`).
+  `scripts/`, `README.md`, `package.json`, `CLAUDE.md`, `CHANGELOG.md`,
+  `_metadata/`).
+
+### OBOWIĄZKOWY proces po KAŻDEJ zmianie (polityka użytkownika)
+
+Po każdej zmianie w kodzie rozszerzenia, ZAWSZE w tej kolejności:
+
+1. **Podbij wersję** w `manifest.json` (`version`) i w nagłówku `content.js`.
+2. **Dopisz wpis do `CHANGELOG.md`** (na górze, format jak istniejące wpisy:
+   `## vX.Y (RRRR-MM-DD)`, sekcje Nowe/Poprawki/itd.) — opis CO i DLACZEGO,
+   żeby zachować pełną historię na przyszłość.
+3. `npm run lint` — walidacja.
+4. **`npm run build`** — buduje `adblock-vivaldi-v<wersja>.zip` (skrypt
+   `scripts/build-zip.mjs`; czyta wersję z `manifest.json`, pakuje tylko pliki
+   rozszerzenia, usuwa stare paczki `adblock-vivaldi-*.zip`).
+5. **Wystaw gotowy ZIP użytkownikowi do pobrania** (narzędzie wysyłki plików),
+   żeby mógł go od razu zainstalować w przeglądarce.
+6. Commit + push (gałąź wg ustaleń; domyślnie `main`).
 
 ## Jak dodać obsługę nowej strony
 
