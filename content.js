@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.4
+// Universal Adblock Spoof v6.5
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -13,6 +13,10 @@
 
 (function () {
   'use strict';
+
+  // Znacznik wersji — do potwierdzenia w konsoli, że ten kod jest aktywny:
+  //   window.__adblockSpoof   →   "6.5"
+  try { window.__adblockSpoof = '6.5'; } catch (e) {}
 
   // Czy wykryto ścianę adblock. Dopóki false — warstwa ciężka śpi.
   var wallDetected = false;
@@ -636,27 +640,63 @@
   // Główne/treściowe zdjęcie WP (hero) bywa chowane przez framework inline:
   //   <img class="wp-media-image" style="...display:none!important">
   // Zdjęcie jest w pełni załadowane (complete + naturalWidth>0), tylko ukryte —
-  // stan „odsłoń" nie wraca przy aktywnym adblocku. Odkrywamy TYLKO załadowane
-  // zdjęcia w kontenerach treści (nie ruszamy lazy-load poniżej ekranu ani
-  // obrazków reklamowych, które się nie wczytały).
+  // stan „odsłoń" nie wraca przy aktywnym adblocku. Co gorsza, WP potrafi ponownie
+  // ustawić display:none PO naszym odsłonięciu, więc jednorazowe odkrycie nie
+  // wystarcza — trzymamy TRWAŁY MutationObserver, który re-odsłania zdjęcie za
+  // każdym razem, gdy zostanie znów schowane. Inline !important da się nadpisać
+  // tylko inline'em (CSS by nie zadziałał).
+  //
+  // Tylko kontenery TREŚCI (nie ruszamy lazy-load poniżej ekranu ani reklam,
+  // które się nie wczytały).
+  var MEDIA_CONTAINER = '[data-mainmedia-photo], .article-img-placeholder, article figure, main figure';
+  var MEDIA_IMG = '[data-mainmedia-photo] img, .article-img-placeholder img, article figure img, main figure img';
+
+  function revealOneImg(img) {
+    try {
+      if (!img || img.tagName !== 'IMG' || !img.style) return;
+      if (img.style.display !== 'none' && img.style.visibility !== 'hidden') return;
+      if (!img.complete || !(img.naturalWidth > 0)) return; // jeszcze nie wczytane → zostaw loaderowi
+      if (!img.closest || !img.closest(MEDIA_CONTAINER)) return;
+      if (img.style.display === 'none') img.style.setProperty('display', 'block', 'important');
+      if (img.style.visibility === 'hidden') img.style.setProperty('visibility', 'visible', 'important');
+    } catch (e) {}
+  }
+
   function revealMainMedia() {
-    var sels = [
-      '[data-mainmedia-photo] img', '.article-img-placeholder img',
-      'article figure img', 'main figure img', 'article img.wp-media-image'
-    ];
-    var seen = [];
-    sels.forEach(function (sel) {
-      try {
-        document.querySelectorAll(sel).forEach(function (img) {
-          if (seen.indexOf(img) !== -1) return;
-          seen.push(img);
-          if (!img.style || img.style.display !== 'none') return;
-          if (!img.complete || !(img.naturalWidth > 0)) return; // jeszcze nie wczytane → zostaw loaderowi
-          img.style.setProperty('display', 'block', 'important');
-          if (img.style.visibility === 'hidden') img.style.setProperty('visibility', 'visible', 'important');
-        });
-      } catch (e) {}
+    try {
+      document.querySelectorAll(MEDIA_IMG).forEach(revealOneImg);
+    } catch (e) {}
+  }
+
+  var _mediaObserver = null;
+  function installMediaReveal() {
+    revealMainMedia();
+    if (_mediaObserver) return;
+    var target = document.body || document.documentElement;
+    if (!target) return;
+    _mediaObserver = new MutationObserver(function (muts) {
+      for (var i = 0; i < muts.length; i++) {
+        var m = muts[i];
+        if (m.type === 'attributes') {
+          revealOneImg(m.target);
+        } else if (m.type === 'childList') {
+          for (var j = 0; j < m.addedNodes.length; j++) {
+            var n = m.addedNodes[j];
+            if (!n || n.nodeType !== 1) continue;
+            if (n.tagName === 'IMG') revealOneImg(n);
+            else if (n.querySelectorAll) {
+              try { n.querySelectorAll('img').forEach(revealOneImg); } catch (e) {}
+            }
+          }
+        }
+      }
     });
+    try {
+      _mediaObserver.observe(target, {
+        attributes: true, attributeFilter: ['style', 'class'],
+        subtree: true, childList: true
+      });
+    } catch (e) {}
   }
 
   function looksLikeAdblockPopup(el) {
@@ -740,7 +780,7 @@
     cleanGeneric();
     removeAdblockPopups();
     revealArticleContent();
-    revealMainMedia();
+    installMediaReveal();
     installGoogletag();
   }
 

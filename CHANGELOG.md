@@ -1,5 +1,26 @@
 # Changelog
 
+## v6.5 (2026-06-07)
+
+### Poprawki
+- **wp.pl — hero nadal znikał (dokończenie fixu z v6.4)**: jednorazowe odsłonięcie
+  z v6.4 nie wystarczało — framework WP **ponownie** ustawia `display:none!important`
+  inline na `<img>` PO naszym odsłonięciu, a nasze odkrywanie kończyło się po ~30 s
+  (ticki). Teraz trzymamy **trwały `MutationObserver`** (`installMediaReveal()`),
+  który nasłuchuje zmian atrybutu `style`/`class` oraz nowych węzłów i re-odsłania
+  główne zdjęcie za każdym razem, gdy zostanie znów schowane. Inline `!important`
+  da się nadpisać tylko inline'em, więc robimy to przez `style.setProperty(...,'important')`.
+  - Zakres bez zmian: tylko **załadowane** zdjęcia (`complete && naturalWidth>0`)
+    w kontenerach treści (`[data-mainmedia-photo]`, `.article-img-placeholder`,
+    `article/main figure`). Niezaładowane lazy-obrazki i reklamy nietknięte.
+  - Reakcja punktowa (na konkretnym `<img>`, nie pełny re-scan) → tanie.
+
+### Nowe
+- **Znacznik wersji** `window.__adblockSpoof` (np. `"6.5"`) — do szybkiego
+  potwierdzenia w konsoli, że aktywny jest właściwy build rozszerzenia.
+
+---
+
 ## v6.4 (2026-06-07)
 
 ### Poprawki
