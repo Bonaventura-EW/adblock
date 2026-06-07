@@ -108,6 +108,13 @@ Trzy metody (wystarczy jedna):
   (fixed/absolute/z-index≥1000 OR selektor Piano).
 - `revealArticleContent()` — odkrywa `article`, `main`, `[class*="article"]`,
   `[class*="Article"]` jeśli schowane inline przez skrypt (nie przez CSS autora).
+- `revealMainMedia()` (v6.4) — WP czasem chowa GŁÓWNE zdjęcie (hero) wstrzykując
+  na `<img class="wp-media-image">` inline `display:none!important` (obok
+  `width/height:100%;object-fit:cover`), a stan „odsłoń" nie wraca przy aktywnym
+  adblocku. Odkrywamy tylko **załadowane** zdjęcia (`complete && naturalWidth>0`)
+  w kontenerach treści (`[data-mainmedia-photo]`, `.article-img-placeholder`,
+  `article/main figure`, `article img.wp-media-image`) — niezaładowane lazy-obrazki
+  zostawiamy loaderowi, nie ruszamy reklam.
 
 ### fxmag.pl (v6.3) — Next.js/React, dwutorowa detekcja
 

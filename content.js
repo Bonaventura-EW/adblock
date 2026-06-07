@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.3
+// Universal Adblock Spoof v6.4
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -633,6 +633,32 @@
     });
   }
 
+  // Główne/treściowe zdjęcie WP (hero) bywa chowane przez framework inline:
+  //   <img class="wp-media-image" style="...display:none!important">
+  // Zdjęcie jest w pełni załadowane (complete + naturalWidth>0), tylko ukryte —
+  // stan „odsłoń" nie wraca przy aktywnym adblocku. Odkrywamy TYLKO załadowane
+  // zdjęcia w kontenerach treści (nie ruszamy lazy-load poniżej ekranu ani
+  // obrazków reklamowych, które się nie wczytały).
+  function revealMainMedia() {
+    var sels = [
+      '[data-mainmedia-photo] img', '.article-img-placeholder img',
+      'article figure img', 'main figure img', 'article img.wp-media-image'
+    ];
+    var seen = [];
+    sels.forEach(function (sel) {
+      try {
+        document.querySelectorAll(sel).forEach(function (img) {
+          if (seen.indexOf(img) !== -1) return;
+          seen.push(img);
+          if (!img.style || img.style.display !== 'none') return;
+          if (!img.complete || !(img.naturalWidth > 0)) return; // jeszcze nie wczytane → zostaw loaderowi
+          img.style.setProperty('display', 'block', 'important');
+          if (img.style.visibility === 'hidden') img.style.setProperty('visibility', 'visible', 'important');
+        });
+      } catch (e) {}
+    });
+  }
+
   function looksLikeAdblockPopup(el) {
     if (!textMatchesSignature(el)) return false;
     var cs;
@@ -714,6 +740,7 @@
     cleanGeneric();
     removeAdblockPopups();
     revealArticleContent();
+    revealMainMedia();
     installGoogletag();
   }
 
