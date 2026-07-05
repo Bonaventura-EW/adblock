@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.5
+// Universal Adblock Spoof v6.6
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -15,8 +15,8 @@
   'use strict';
 
   // Znacznik wersji — do potwierdzenia w konsoli, że ten kod jest aktywny:
-  //   window.__adblockSpoof   →   "6.5"
-  try { window.__adblockSpoof = '6.5'; } catch (e) {}
+  //   window.__adblockSpoof   →   "6.6"
+  try { window.__adblockSpoof = '6.6'; } catch (e) {}
 
   // Czy wykryto ścianę adblock. Dopóki false — warstwa ciężka śpi.
   var wallDetected = false;
@@ -473,6 +473,208 @@
       var root2 = document.documentElement || document;
       if (root2) obs2.observe(root2, { childList: true, subtree: true });
       setTimeout(function () { try { obs2.disconnect(); } catch (e) {} }, 60000);
+    } catch (e) {}
+  })();
+
+  // ── ODTWARZACZ WIDEO WP — SPOOF PRE-ROLLA (Google IMA) ──────────────────────
+  // Odtwarzacz wideo WP (std.wpcdn.pl/player/wpjslib_player.js) przed puszczeniem
+  // filmu odtwarza pre-roll reklamowy przez Google IMA SDK
+  // (imasdk.googleapis.com/js/sdkloader/ima3.js) + tag VAST. uBlock blokuje
+  // ima3.js oraz tagi reklam → player traktuje nieudane pobranie reklamy jako
+  // adblock i renderuje kreację "blockade" ("Wyłącz AdBlocka, aby obejrzeć
+  // materiał") zamiast filmu.
+  //
+  // Analiza kodu playera (funkcje canSkipAd/onAdBlock oraz obsługa zdarzeń IMA):
+  //   • jedynym wywołaniem ściany w ścieżce IMA jest AD_ERROR na AdsManagerze
+  //     (handler N → onAdBlock(13));
+  //   • zarówno ALL_ADS_COMPLETED (handler L), jak i błąd samego AdsLoadera
+  //     (handler V) kończą się a.resume() → film gra normalnie;
+  //   • po requestAds() rusza "IMA REQUEST TIMEOUT", ale ADS_MANAGER_LOADED go
+  //     kasuje (clearTimeout(w)).
+  //
+  // Dlatego podstawiamy własny, kompletny window.google.ima:
+  //   AdsLoader.requestAds() → (async) ADS_MANAGER_LOADED → AdsManager,
+  //   którego start() natychmiast zgłasza ALL_ADS_COMPLETED (zero reklam).
+  //   NIGDY nie emitujemy AD_ERROR na managerze → ściana nie powstaje, a player
+  //   przechodzi prosto do treści wideo.
+  //
+  // Dodatkowo neutralizujemy sam <script src=…ima3.js> (onerror→noop + ręczne
+  // onload), bo jego błąd ładowania również prowadzi do onAdBlock(13). Mock
+  // instalujemy LENIWIE — dopiero gdy strona faktycznie wstrzykuje loader IMA —
+  // żeby na zwykłych stronach nie dotykać niczego.
+  (function installVideoImaSpoof() {
+    function isIma3Script(node) {
+      if (!node || node.tagName !== 'SCRIPT') return false;
+      var src = node.src || node.getAttribute('src') || '';
+      return src.indexOf('sdkloader/ima3') !== -1;
+    }
+
+    function buildImaMock() {
+      function EventBus() { this._h = {}; }
+      EventBus.prototype.addEventListener = function (type, fn) {
+        if (!this._h[type]) this._h[type] = [];
+        this._h[type].push(fn);
+      };
+      EventBus.prototype.removeEventListener = function (type, fn) {
+        if (!this._h[type]) return;
+        this._h[type] = this._h[type].filter(function (f) { return f !== fn; });
+      };
+      EventBus.prototype._emit = function (evt) {
+        (this._h[evt.type] || []).slice().forEach(function (fn) { try { fn(evt); } catch (e) {} });
+      };
+
+      // Pełny zestaw typów zdarzeń IMA (player iteruje Object.values(AdEvent.Type)
+      // i rejestruje listener dla każdego — musi być kompletny).
+      var AdEventType = {
+        AD_BREAK_READY: 'adBreakReady', AD_BUFFERING: 'adBuffering', AD_CAN_PLAY: 'adCanPlay',
+        AD_METADATA: 'adMetadata', AD_PROGRESS: 'adProgress', ALL_ADS_COMPLETED: 'allAdsCompleted',
+        CLICK: 'click', COMPLETE: 'complete', CONTENT_PAUSE_REQUESTED: 'contentPauseRequested',
+        CONTENT_RESUME_REQUESTED: 'contentResumeRequested', DURATION_CHANGE: 'durationChange',
+        FIRST_QUARTILE: 'firstQuartile', IMPRESSION: 'impression', INTERACTION: 'interaction',
+        LINEAR_CHANGED: 'linearChanged', LOADED: 'loaded', LOG: 'log', MIDPOINT: 'midpoint',
+        PAUSED: 'pause', RESUMED: 'resume', SKIPPABLE_STATE_CHANGED: 'skippableStateChanged',
+        SKIPPED: 'skip', STARTED: 'start', THIRD_QUARTILE: 'thirdQuartile', USER_CLOSE: 'userClose',
+        VIDEO_CLICKED: 'videoClicked', VIDEO_ICON_CLICKED: 'videoIconClicked',
+        VOLUME_CHANGED: 'volumeChange', VOLUME_MUTED: 'mute'
+      };
+
+      function AdsManager() { EventBus.call(this); this._done = false; }
+      AdsManager.prototype = Object.create(EventBus.prototype);
+      AdsManager.prototype.init = function () {};
+      AdsManager.prototype.start = function () {
+        var mgr = this;
+        if (mgr._done) return;
+        mgr._done = true;
+        // Zero reklam → od razu "wszystkie reklamy zakończone" → player wznawia treść.
+        setTimeout(function () {
+          mgr._emit({
+            type: AdEventType.ALL_ADS_COMPLETED,
+            getAd: function () { return null; },
+            getAdData: function () { return null; }
+          });
+        }, 0);
+      };
+      AdsManager.prototype.getRemainingTime = function () { return 0; };
+      AdsManager.prototype.getVolume = function () { return 0; };
+      AdsManager.prototype.setVolume = function () {};
+      AdsManager.prototype.resize = function () {};
+      AdsManager.prototype.resume = function () {};
+      AdsManager.prototype.pause = function () {};
+      AdsManager.prototype.stop = function () {};
+      AdsManager.prototype.skip = function () {};
+      AdsManager.prototype.discardAdBreak = function () {};
+      AdsManager.prototype.getAdSkippableState = function () { return false; };
+      AdsManager.prototype.getCuePoints = function () { return []; };
+      AdsManager.prototype.destroy = function () { this._h = {}; };
+
+      function AdsLoader() { EventBus.call(this); }
+      AdsLoader.prototype = Object.create(EventBus.prototype);
+      AdsLoader.prototype.getSettings = function () { return ima.settings; };
+      AdsLoader.prototype.contentComplete = function () {};
+      AdsLoader.prototype.destroy = function () { this._h = {}; };
+      AdsLoader.prototype.requestAds = function (req) {
+        var loader = this;
+        setTimeout(function () {
+          var mgr = new AdsManager();
+          loader._emit({
+            type: ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED,
+            getAdsManager: function () { return mgr; },
+            getUserRequestContext: function () {
+              try { return (req && req.getUserRequestContext) ? req.getUserRequestContext() : (req && req.userRequestContext) || null; }
+              catch (e) { return null; }
+            }
+          });
+        }, 0);
+      };
+
+      function AdDisplayContainer() {}
+      AdDisplayContainer.prototype.initialize = function () {};
+      AdDisplayContainer.prototype.destroy = function () {};
+
+      function AdsRequest() {}
+      AdsRequest.prototype.setAdWillAutoPlay = function () {};
+      AdsRequest.prototype.setAdWillPlayMuted = function () {};
+      AdsRequest.prototype.setContinuousPlayback = function () {};
+
+      function AdsRenderingSettings() {
+        this.enablePreloading = false;
+        this.uiElements = [];
+        this.mimeTypes = null;
+        this.restoreCustomPlaybackStateOnAdBreakComplete = true;
+        this.loadVideoTimeout = -1;
+      }
+
+      var settings = {
+        setLocale: function () {}, setPpid: function () {}, setVpaidMode: function () {},
+        setNumRedirects: function () {}, setMaxRedirects: function () {}, setPlayerType: function () {},
+        setPlayerVersion: function () {}, setAutoPlayAdBreaks: function () {}, setSessionId: function () {},
+        setFeatureFlags: function () {}, setDisableCustomPlaybackForIOS10Plus: function () {},
+        setCookiesEnabled: function () {}, setStreamCorrelator: function () {},
+        getPpid: function () { return ''; }
+      };
+
+      var ima = {
+        settings: settings,
+        VERSION: '3.517.2',
+        ImaSdkSettings: { VpaidMode: { DISABLED: 0, ENABLED: 1, INSECURE: 2 } },
+        ViewMode: { NORMAL: 'normal', FULLSCREEN: 'fullscreen' },
+        UiElements: { AD_ATTRIBUTION: 'adAttribution', COUNTDOWN: 'countdown' },
+        AdDisplayContainer: AdDisplayContainer,
+        AdsLoader: AdsLoader,
+        AdsManager: AdsManager,
+        AdsRequest: AdsRequest,
+        AdsRenderingSettings: AdsRenderingSettings,
+        AdEvent: { Type: AdEventType },
+        AdErrorEvent: { Type: { AD_ERROR: 'adError' } },
+        AdsManagerLoadedEvent: { Type: { ADS_MANAGER_LOADED: 'adsManagerLoaded' } },
+        AdError: { Type: { LOAD: 'adLoadError', PLAY: 'adPlayError' }, ErrorCode: {} }
+      };
+      return ima;
+    }
+
+    function ensureImaMock() {
+      try {
+        if (!window.google) window.google = {};
+        if (window.google.ima && window.google.ima.__spoof__) return;
+        var mock = buildImaMock();
+        mock.__spoof__ = true;
+        window.google.ima = mock;
+        markWall();
+      } catch (e) {}
+    }
+
+    function neutraliseIma3(node) {
+      if (!isIma3Script(node)) return false;
+      ensureImaMock();
+      // Realne żądanie i tak wycina uBlock — udajemy, że skrypt załadował się OK,
+      // żeby onerror playera nie wywołał onAdBlock(13).
+      try { node.onerror = null; } catch (e) {}
+      try {
+        Object.defineProperty(node, 'onerror', {
+          configurable: true, get: function () { return null; }, set: function () {}
+        });
+      } catch (e) {}
+      setTimeout(function () {
+        try { if (typeof node.onload === 'function') node.onload(); } catch (e) {}
+        try { node.dispatchEvent(new Event('load')); } catch (e) {}
+      }, 30);
+      return true;
+    }
+
+    try {
+      document.querySelectorAll('script').forEach(neutraliseIma3);
+      var obs3 = new MutationObserver(function (muts) {
+        muts.forEach(function (m) {
+          m.addedNodes.forEach(function (n) {
+            if (n.nodeType !== 1) return;
+            if (neutraliseIma3(n)) return;
+            if (n.querySelectorAll) n.querySelectorAll('script').forEach(neutraliseIma3);
+          });
+        });
+      });
+      var root3 = document.documentElement || document;
+      if (root3) obs3.observe(root3, { childList: true, subtree: true });
+      setTimeout(function () { try { obs3.disconnect(); } catch (e) {} }, 120000);
     } catch (e) {}
   })();
 

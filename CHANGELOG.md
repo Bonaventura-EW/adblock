@@ -1,5 +1,34 @@
 # Changelog
 
+## v6.6 (2026-07-05)
+
+### Nowe
+- **Odtwarzacz wideo WP — spoof pre-rolla (Google IMA)**: na stronach WP
+  (np. `wiadomosci.wp.pl`) w odtwarzaczu wideo pojawiała się ściana „Wyłącz
+  AdBlocka, aby obejrzeć materiał" zamiast filmu. To osobny mechanizm od ściany
+  na treści artykułu — realizuje go player `std.wpcdn.pl/player/wpjslib_player.js`.
+  - **Przyczyna**: player przed puszczeniem filmu odtwarza pre-roll reklamowy
+    przez Google IMA SDK (`imasdk.googleapis.com/js/sdkloader/ima3.js` + tag
+    VAST). uBlock blokuje ima3.js oraz tagi reklam → nieudane pobranie reklamy
+    player interpretuje jako adblock i renderuje kreację `blockade` (ścianę)
+    zamiast wideo.
+  - **Rozwiązanie** (`content.js` → `installVideoImaSpoof()`): podstawiamy własny,
+    kompletny `window.google.ima`. `AdsLoader.requestAds()` asynchronicznie
+    zgłasza `ADS_MANAGER_LOADED`, a `AdsManager.start()` natychmiast emituje
+    `ALL_ADS_COMPLETED` (zero reklam). Z analizy kodu playera: w ścieżce IMA
+    ścianę wywołuje wyłącznie `AD_ERROR` na AdsManagerze (→ `onAdBlock(13)`);
+    zarówno `ALL_ADS_COMPLETED`, jak i błąd samego `AdsLoadera` kończą się
+    `resume()` → film gra. Nigdy nie emitujemy `AD_ERROR` na managerze, więc
+    ściana nie powstaje, a player przechodzi prosto do treści wideo.
+  - Dodatkowo neutralizujemy sam `<script src=…ima3.js>` (onerror→no-op + ręczne
+    `onload`), bo błąd jego ładowania też prowadzi do `onAdBlock(13)`.
+  - Mock instalowany **leniwie** — dopiero gdy strona faktycznie wstrzykuje loader
+    IMA — więc na zwykłych stronach niczego nie dotyka. Reklamy nadal blokuje
+    uBlock; tu jedynie sprawiamy, że player traktuje pre-roll jako „odtworzony".
+  - Uwaga: jeśli dana strona serwuje sam strumień wideo dopiero po handshake
+    reklamowym po stronie serwera, mock może nie wystarczyć — wymaga testu w
+    przeglądarce (`window.__adblockSpoof === "6.6"` potwierdza aktywny build).
+
 ## v6.5 (2026-06-07)
 
 ### Poprawki
