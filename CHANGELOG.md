@@ -1,5 +1,24 @@
 # Changelog
 
+## v6.9 (2026-07-05)
+
+### Usunięte
+- **Wycofano eksperymentalny kod anty-ściany playera wideo WP** (mock Google IMA
+  `installVideoImaSpoof()` z v6.6 + poller `installCruxUnseal()` z v6.7) oraz
+  **logi diagnostyczne** `console.info('[adblock-spoof] …')`. Reverse-engineering
+  wykazał, że ściana w playerze wideo WP („Wyłącz AdBlocka, aby obejrzeć materiał")
+  jest **utwardzonym antyadblockiem spiętym z potokiem impresji reklamowych**:
+  - decyzję podejmuje `window.WP.crux.sealed()` — czyta na żywo stan detekcji
+    (moduł 6167), który detektor oparty na licznikach impresji (`WPvimpbd`,
+    moduł 11167) ustawia na „adblock", gdy reklamy nie renderują impresji;
+  - wszystkie punkty zaczepienia (setter stanu, escape-hatch `4367.z`) są zamknięte
+    w closure modułów webpacka — nieosiągalne z content scriptu;
+  - wyjście jest utwardzone: obiekt `crux` jest `Object.frozen`, a właściwość
+    `WP.crux` non-configurable/non-writable (potwierdzone testami w konsoli).
+  - To wykracza poza technikę rozszerzenia (podobnie jak paywalle serwerowe) —
+    bez wpuszczenia reklam lub przepisania playera nie da się tego wiarygodnie
+    oszukać. Ściany artykułowe działają bez zmian.
+
 ## v6.8 (2026-07-05)
 
 ### Nowe
