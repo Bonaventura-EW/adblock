@@ -1,5 +1,31 @@
 # Changelog
 
+## v6.7 (2026-07-05)
+
+### Poprawki
+- **Odtwarzacz wideo WP — właściwy fix przez `window.WP.crux.sealed()`**: sam mock
+  IMA z v6.6 nie wystarczył. Diagnostyka na żywej stronie pokazała, że player
+  **nie idzie ścieżką IMA** dla tej ściany — do `<video>` wstawia wbudowaną atrapę
+  `staticVideoMp4` (40 ms pustego MP4), a widoczna plansza „Wyłącz AdBlocka" to
+  **poster** wideo (obraz z `crux.mess()`), nie tekst w DOM. To kreacja „blockade"
+  z wewnętrznego waterfalla reklam.
+  - **Sedno**: w kodzie playera `canSkipAd() === !window.WP.crux.sealed() ||
+    isRadio() || isLive()`, a KAŻDA gałąź nieudanego pobrania reklamy robi
+    `canSkipAd() ? resume()/end() (gra właściwa treść) : blockade/onAdBlock
+    (ściana)`. `sealed()===true` oznacza „treść zapieczętowana, bo wykryto
+    adblocka".
+  - **Rozwiązanie** (`content.js` → `installCruxUnseal()`): zmuszamy
+    `window.WP.crux.sealed()` do zwracania `false` → `canSkipAd()` zawsze `true`
+    → po reklamie zablokowanej przez uBlock player przechodzi prosto do wideo
+    zamiast serwować „blockade". `sealed()` jest używane wyłącznie w `canSkipAd()`,
+    więc nadpisanie niczego innego nie rusza — `mess`/`unmess` (deobfuskacja
+    URL-i treści) zostają nietknięte. `crux` to obiekt first-party osiągalny z
+    MAIN world; dopinamy się pollingiem, bo `WP.crux` pojawia się z opóźnieniem.
+  - Mock IMA z v6.6 zostaje jako zabezpieczenie ścieżki IMA (gdyby była użyta).
+  - **Logi diagnostyczne**: tymczasowo dodane `console.info('[adblock-spoof] …')`
+    przy przechwyceniu IMA i odpieczętowaniu crux — do potwierdzenia, którą
+    ścieżką idzie player. Zostaną usunięte, gdy potwierdzimy, że działa.
+
 ## v6.6 (2026-07-05)
 
 ### Nowe

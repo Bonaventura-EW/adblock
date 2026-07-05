@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.6
+// Universal Adblock Spoof v6.7
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -15,8 +15,8 @@
   'use strict';
 
   // Znacznik wersji — do potwierdzenia w konsoli, że ten kod jest aktywny:
-  //   window.__adblockSpoof   →   "6.6"
-  try { window.__adblockSpoof = '6.6'; } catch (e) {}
+  //   window.__adblockSpoof   →   "6.7"
+  try { window.__adblockSpoof = '6.7'; } catch (e) {}
 
   // Czy wykryto ścianę adblock. Dopóki false — warstwa ciężka śpi.
   var wallDetected = false;
@@ -574,6 +574,7 @@
       AdsLoader.prototype.destroy = function () { this._h = {}; };
       AdsLoader.prototype.requestAds = function (req) {
         var loader = this;
+        try { console.info('[adblock-spoof] IMA.requestAds() przechwycone → zwracam 0 reklam'); } catch (e) {}
         setTimeout(function () {
           var mgr = new AdsManager();
           loader._emit({
@@ -645,6 +646,7 @@
 
     function neutraliseIma3(node) {
       if (!isIma3Script(node)) return false;
+      try { console.info('[adblock-spoof] neutralizuję <script src=…ima3.js> (onerror→noop, ręczny onload)'); } catch (e) {}
       ensureImaMock();
       // Realne żądanie i tak wycina uBlock — udajemy, że skrypt załadował się OK,
       // żeby onerror playera nie wywołał onAdBlock(13).
@@ -676,6 +678,50 @@
       if (root3) obs3.observe(root3, { childList: true, subtree: true });
       setTimeout(function () { try { obs3.disconnect(); } catch (e) {} }, 120000);
     } catch (e) {}
+  })();
+
+  // ── ODTWARZACZ WIDEO WP — ODPIECZĘTOWANIE TREŚCI (window.WP.crux.sealed) ─────
+  // Analiza wpjslib_player.js:
+  //   canSkipAd() === !window.WP.crux.sealed() || isRadio() || isLive()
+  // i KAŻDA gałąź nieudanego pobrania reklamy (ima3.js zablokowany, pusty/ubity
+  // VAST, timeout, błąd AdsManagera) rozgałęzia się tak:
+  //   canSkipAd() ? resume()/end()  (gra WŁAŚCIWA treść)
+  //              : blockade / onAdBlock  (atrapa MP4 + plansza „Wyłącz AdBlocka").
+  //
+  // crux.sealed()===true = „treść zapieczętowana, bo wykryto adblocka". Zmuszamy
+  // sealed() do zwracania false → canSkipAd() zawsze true → po zablokowanej przez
+  // uBlock reklamie player przechodzi PROSTO do wideo zamiast serwować kreację
+  // „blockade". sealed() jest używane TYLKO w canSkipAd(), więc nadpisanie nic
+  // innego nie rusza; mess/unmess (deobfuskacja URL-i treści) zostają nietknięte.
+  //
+  // crux = window.WP.crux (first-party, osiągalny). WP.crux pojawia się z
+  // opóźnieniem, więc dopinamy się pollingiem (i re-patchujemy, gdyby crux został
+  // podmieniony). Ściana WP bywa opóźniona ~20 s, więc ~30 s pollingu wystarcza.
+  (function installCruxUnseal() {
+    function cruxSealedFalse() { return false; }
+    var tries = 0;
+    function tick() {
+      tries++;
+      try {
+        var WP = window.WP;
+        if (WP && WP.crux && !WP.crux.__unsealed__) {
+          var crux = WP.crux;
+          try {
+            Object.defineProperty(crux, 'sealed', {
+              configurable: true, enumerable: false,
+              get: function () { return cruxSealedFalse; },
+              set: function () {}
+            });
+          } catch (e) { try { crux.sealed = cruxSealedFalse; } catch (e2) {} }
+          crux.__unsealed__ = true;
+          try { console.info('[adblock-spoof] window.WP.crux.sealed() → false (canSkipAd=true)'); } catch (e) {}
+          markWall();
+        }
+      } catch (e) {}
+      if (tries > 150) { clearInterval(iv); }
+    }
+    tick();
+    var iv = setInterval(tick, 200);
   })();
 
   // ══════════════════════════════════════════════════════════════════════════
