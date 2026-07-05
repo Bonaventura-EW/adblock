@@ -1,5 +1,22 @@
 # Changelog
 
+## v6.8 (2026-07-05)
+
+### Nowe
+- **Numer wersji w popupie**: w nagłówku popupu (obok tytułu) pokazujemy badge
+  `v<wersja>` pobierany z `chrome.runtime.getManifest().version` — zawsze zgodny
+  z faktycznie zainstalowanym buildem, żeby było wiadomo, której wersji się używa.
+
+### Uwagi
+- **Licznik „Usunięte ściany" — potwierdzenie działania**: licznik inkrementuje
+  się tylko wtedy, gdy warstwa ciężka faktycznie usuwa element ściany z DOM
+  (`el.remove()` w `removeAdblockPopups()`/`cleanGeneric()`); sygnał idzie
+  MAIN → `bridge.js` (ISOLATED) → `background.js` → `storage.local.removedCount`.
+  Uwaga: licznik jest globalny (sumuje po wszystkich stronach) i NIE liczy ściany
+  w playerze wideo (ta jest obsługiwana przez crux/IMA, bez usuwania elementu).
+- Ściana w playerze wideo WP nadal w diagnostyce (patrz v6.6/v6.7) — logi
+  `[adblock-spoof]` w konsoli mają wskazać, którą ścieżką idzie player.
+
 ## v6.7 (2026-07-05)
 
 ### Poprawki

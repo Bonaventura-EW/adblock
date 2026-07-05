@@ -16,6 +16,13 @@
     reset: document.getElementById('reset')
   };
 
+  // Numer wersji z manifestu — zawsze zgodny z zainstalowanym buildem.
+  try {
+    const v = chrome.runtime.getManifest().version;
+    const el = document.getElementById('version');
+    if (el) el.textContent = 'v' + v;
+  } catch (e) {}
+
   let currentUrl = null;   // pełny URL bez query/hash
   let currentHost = null;  // hostname
 
