@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.9
+// Universal Adblock Spoof v6.10
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -15,8 +15,8 @@
   'use strict';
 
   // Znacznik wersji — do potwierdzenia w konsoli, że ten kod jest aktywny:
-  //   window.__adblockSpoof   →   "6.9"
-  try { window.__adblockSpoof = '6.9'; } catch (e) {}
+  //   window.__adblockSpoof   →   "6.10"
+  try { window.__adblockSpoof = '6.10'; } catch (e) {}
 
   // Czy wykryto ścianę adblock. Dopóki false — warstwa ciężka śpi.
   var wallDetected = false;
@@ -118,18 +118,20 @@
             try {
               var rv = val.randvar;
               var _realRv = null;
+              // Wrappery utworzone raz — WP czyta window[randvar] przy każdym
+              // slocie; tworzenie nowej funkcji per odczyt = zbędny churn GC.
+              var _noopRv = function () {};
+              var _wrappedRv = function () {
+                var args = Array.prototype.slice.call(arguments);
+                if (args.length > 2) args[2] = false; // hasAdblock=false
+                return _realRv.apply(this, args);
+              };
               Object.defineProperty(window, rv, {
                 configurable: true,
                 enumerable: true,
                 get: function () {
-                  if (_realRv) {
-                    return function () {
-                      var args = Array.prototype.slice.call(arguments);
-                      if (args.length > 2) args[2] = false; // hasAdblock=false
-                      return _realRv.apply(this, args);
-                    };
-                  }
-                  return function () {}; // tymczasowy no-op zanim fn zostanie przypisana
+                  // no-op zanim strona przypisze prawdziwą funkcję
+                  return _realRv ? _wrappedRv : _noopRv;
                 },
                 set: function (fn) {
                   if (typeof fn === 'function') _realRv = fn;
@@ -515,6 +517,11 @@
   function textMatchesSignature(el) {
     if (!el || el.nodeType !== 1) return false;
     if (el.offsetHeight < 50 || el.offsetWidth < 50) return false;
+    // Ściana adblock to niewielki overlay. Ogromne kontenery (np. root aplikacji
+    // React na wp.pl) pomijamy PRZED czytaniem textContent — samo `el.textContent`
+    // skleja cały tekst poddrzewa w nowy string i przy skanach co mutację DOM
+    // generowało setki MB śmieci na minutę.
+    if (el.getElementsByTagName('*').length > 1500) return false;
     var text = el.textContent || '';
     if (text.length > 5000) return false;
     var lower = text.toLowerCase();
@@ -611,13 +618,19 @@
     var classes = SCREENING_KEYS.map(function (k) { return cfg.randomClasses[k]; }).filter(Boolean);
     if (!classes.length) return false;
 
-    var existing = document.getElementById('fw-wp-screening');
-    if (existing) existing.remove();
-    var style = document.createElement('style');
-    style.id = 'fw-wp-screening';
-    style.textContent = classes.map(function (c) {
+    var cssText = classes.map(function (c) {
       return '.' + c + '{display:none!important;visibility:hidden!important}';
     }).join('');
+    var existing = document.getElementById('fw-wp-screening');
+    if (existing) {
+      // Styl już wstrzyknięty i aktualny — nie przebudowuj go przy każdym
+      // przebiegu warstwy ciężkiej (churn DOM przy mutacjach co 200 ms).
+      if (existing.textContent === cssText) return true;
+      existing.remove();
+    }
+    var style = document.createElement('style');
+    style.id = 'fw-wp-screening';
+    style.textContent = cssText;
     var target = document.head || document.documentElement;
     if (target) { target.appendChild(style); return true; }
     return false;
@@ -629,9 +642,14 @@
     selectors.forEach(function (sel) {
       try {
         document.querySelectorAll(sel).forEach(function (el) {
+          // Najpierw tani warunek na styl inline — getComputedStyle wymusza
+          // przeliczenie stylów, a odkrywamy tylko elementy schowane inline.
+          var hiddenInline = el.style.display === 'none';
+          var invisibleInline = el.style.visibility === 'hidden';
+          if (!hiddenInline && !invisibleInline) return;
           var cs = window.getComputedStyle(el);
-          if (cs.display === 'none' && el.style.display === 'none') el.style.display = '';
-          if (cs.visibility === 'hidden' && el.style.visibility === 'hidden') el.style.visibility = '';
+          if (cs.display === 'none' && hiddenInline) el.style.display = '';
+          if (cs.visibility === 'hidden' && invisibleInline) el.style.visibility = '';
         });
       } catch (e) {}
     });
@@ -668,33 +686,46 @@
     } catch (e) {}
   }
 
+  // Trwały obserwator re-odsłaniania zdjęć — ale ZAWĘŻONY do kontenerów
+  // medialnych. Wersja z v6.5 nasłuchiwała zmian style/class na CAŁYM body
+  // (subtree) — na portalach WP React przełącza klasy bez przerwy, więc
+  // przeglądarka bez końca alokowała MutationRecordy dla całej strony
+  // (jedna z przyczyn lawinowego wzrostu RAM). Teraz obserwujemy wyłącznie
+  // poddrzewa kontenerów MEDIA_CONTAINER (małe <figure> itp.); nowe kontenery
+  // dopinamy przy każdym przebiegu warstwy ciężkiej.
   var _mediaObserver = null;
+  var _observedMedia = (typeof WeakSet === 'function') ? new WeakSet() : null;
   function installMediaReveal() {
     revealMainMedia();
-    if (_mediaObserver) return;
-    var target = document.body || document.documentElement;
-    if (!target) return;
-    _mediaObserver = new MutationObserver(function (muts) {
-      for (var i = 0; i < muts.length; i++) {
-        var m = muts[i];
-        if (m.type === 'attributes') {
-          revealOneImg(m.target);
-        } else if (m.type === 'childList') {
-          for (var j = 0; j < m.addedNodes.length; j++) {
-            var n = m.addedNodes[j];
-            if (!n || n.nodeType !== 1) continue;
-            if (n.tagName === 'IMG') revealOneImg(n);
-            else if (n.querySelectorAll) {
-              try { n.querySelectorAll('img').forEach(revealOneImg); } catch (e) {}
+    if (!_mediaObserver) {
+      _mediaObserver = new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+          var m = muts[i];
+          if (m.type === 'attributes') {
+            revealOneImg(m.target);
+          } else if (m.type === 'childList') {
+            for (var j = 0; j < m.addedNodes.length; j++) {
+              var n = m.addedNodes[j];
+              if (!n || n.nodeType !== 1) continue;
+              if (n.tagName === 'IMG') revealOneImg(n);
+              else if (n.querySelectorAll) {
+                try { n.querySelectorAll('img').forEach(revealOneImg); } catch (e) {}
+              }
             }
           }
         }
-      }
-    });
+      });
+    }
     try {
-      _mediaObserver.observe(target, {
-        attributes: true, attributeFilter: ['style', 'class'],
-        subtree: true, childList: true
+      document.querySelectorAll(MEDIA_CONTAINER).forEach(function (container) {
+        if (_observedMedia) {
+          if (_observedMedia.has(container)) return;
+          _observedMedia.add(container);
+        }
+        _mediaObserver.observe(container, {
+          attributes: true, attributeFilter: ['style', 'class'],
+          subtree: true, childList: true
+        });
       });
     } catch (e) {}
   }
@@ -733,9 +764,14 @@
 
     var articleContainers = document.querySelectorAll('article, main, [class*="article"], [class*="content"]');
     articleContainers.forEach(function (container) {
-      container.querySelectorAll('div, section').forEach(function (el) {
-        if (el.parentElement === container && looksLikeAdblockPopup(el)) { el.remove(); reportRemoved(); }
-      });
+      // Tylko bezpośrednie dzieci — pełny querySelectorAll('div, section') po
+      // każdym kontenerze dawał O(n²) alokacji NodeList na stronach WP.
+      for (var i = container.children.length - 1; i >= 0; i--) {
+        var el = container.children[i];
+        if ((el.tagName === 'DIV' || el.tagName === 'SECTION') && looksLikeAdblockPopup(el)) {
+          el.remove(); reportRemoved();
+        }
+      }
     });
   }
 
@@ -775,6 +811,7 @@
 
   function runHeavy() {
     if (!wallDetected) return;
+    lastHeavyRun = Date.now();
     injectBaseCSS();
     applyWPScreeningCSS();
     cleanGeneric();
@@ -784,13 +821,32 @@
     installGoogletag();
   }
 
+  // Dławik warstwy ciężkiej: pełny skan strony maksymalnie raz na sekundę.
+  // Bez tego na dynamicznych stronach (portale WP mutują DOM bez przerwy)
+  // runHeavy odpalał się do 5×/s w nieskończoność → lawinowy wzrost RAM.
+  var HEAVY_MIN_INTERVAL = 1000;
+  var lastHeavyRun = 0;
+  var heavyScheduled = false;
+  function runHeavyThrottled() {
+    if (!wallDetected) return;
+    var wait = lastHeavyRun + HEAVY_MIN_INTERVAL - Date.now();
+    if (wait > 0) {
+      if (!heavyScheduled) {
+        heavyScheduled = true;
+        setTimeout(function () { heavyScheduled = false; runHeavy(); }, wait);
+      }
+      return;
+    }
+    runHeavy();
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
   // PĘTLA GŁÓWNA — tania detekcja, ciężkie akcje tylko po wykryciu
   // ══════════════════════════════════════════════════════════════════════════
 
   function tick() {
     detectWall();
-    if (wallDetected) runHeavy();
+    if (wallDetected) runHeavyThrottled();
   }
 
   function setup() {
@@ -807,7 +863,23 @@
       }
     });
     var target = document.body || document.documentElement;
-    if (target) observer.observe(target, { childList: true, subtree: true });
+    if (target) {
+      observer.observe(target, { childList: true, subtree: true });
+      // Obserwator działa tylko przez pierwsze 3 minuty. Ściany adblock
+      // pojawiają się najpóźniej ~20-30 s po wejściu (fxmag: 20 s), a bez
+      // limitu skanowanie strony trwało bez końca na każdą mutację DOM.
+      // Po odłączeniu detekcję nadal zapewniają przechwyty zdarzeniowe
+      // (window.WP, __INIT_CONFIG__, Piano, script killer) — te są tanie.
+      // Dodatkowo wolny tick rezerwowy co 15 s (tylko widoczna karta) —
+      // dopina obserwatory zdjęć do kontenerów doładowanych infinite scrollem.
+      setTimeout(function () {
+        try { observer.disconnect(); } catch (e) {}
+        setInterval(function () {
+          if (document.visibilityState === 'hidden') return;
+          tick();
+        }, 15000);
+      }, 180000);
+    }
   }
 
   if (document.body) setup();

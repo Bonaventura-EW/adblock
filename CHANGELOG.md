@@ -1,5 +1,44 @@
 # Changelog
 
+## v6.10 (2026-07-11)
+
+### Poprawki
+- **Lawinowy wzrost RAM na portalach WP (wiadomosci.wp.pl itd.)**: dwa źródła,
+  oba naprawione.
+  1. Na stronach WP `window.WP` włącza warstwę ciężką od razu, a główny
+     MutationObserver odpalał pełny skan strony (`runHeavy`) przy każdej mutacji
+     DOM — do 5×/s, bez końca, bo portal WP mutuje DOM non-stop:
+     - `runHeavy` z dławikiem: maksymalnie raz na sekundę.
+     - Główny MutationObserver odłącza się po 3 minutach; potem wolny tick
+       rezerwowy co 15 s (tylko na widocznej karcie). Detekcję zdarzeniową
+       dalej zapewniają przechwyty `window.WP`, `__INIT_CONFIG__`, Piano
+       i script killer.
+     - `textMatchesSignature` pomija ogromne kontenery (>1500 elementów) PRZED
+       czytaniem `textContent` — wcześniej każdy skan sklejał cały tekst strony
+       (root aplikacji React) w nowy string → setki MB śmieci GC na minutę.
+     - `applyWPScreeningCSS` nie przebudowuje elementu `<style>`, gdy treść
+       się nie zmieniła.
+     - `removeAdblockPopups`: skan tylko bezpośrednich dzieci kontenerów
+       artykułu zamiast `querySelectorAll('div, section')` per kontener
+       (było O(n²)).
+     - `revealArticleContent`: najpierw tani warunek na styl inline, dopiero
+       potem `getComputedStyle` (mniej wymuszonych reflow).
+     - Getter `randvar` zwraca zcache'owany wrapper zamiast tworzyć nową
+       funkcję przy każdym odczycie.
+  2. Trwały obserwator zdjęć z v6.5 (`installMediaReveal`) nasłuchiwał zmian
+     `style`/`class` na **całym** `body` (subtree) — React na WP przełącza
+     klasy bez przerwy, więc przeglądarka bez końca alokowała MutationRecordy
+     dla całej strony. Teraz obserwuje wyłącznie poddrzewa kontenerów
+     medialnych (`MEDIA_CONTAINER`, małe `<figure>` itp.); nowe kontenery
+     dopinane przy przebiegach warstwy ciężkiej i ticku rezerwowym.
+
+### Uwagi
+- Numeracja: fix pamięci powstał pierwotnie jako „v6.4" na bazie starej gałęzi
+  v6.3; tutaj scalony z główną linią v6.4–v6.9 (hero, badge wersji, wycofany
+  kod wideo) — ta wersja zawiera obie linie zmian.
+
+---
+
 ## v6.9 (2026-07-05)
 
 ### Usunięte
