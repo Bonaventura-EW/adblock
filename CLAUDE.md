@@ -8,7 +8,16 @@ adblocka". Rozszerzenie oszukuje te detektory — strona myśli, że adblocka ni
 ma, więc nie zasłania treści. Reklamy nadal blokuje uBlock.
 
 Repozytorium: `Bonaventura-EW/adblock`, branch główny: `main`.
-Dev branch: `claude/adoring-tesla-ObIvZ`.
+
+### Zasady pracy z gałęziami (lekcja z porządków przy v6.10/6.11)
+
+- **`main` jest jedynym źródłem prawdy** — zawiera pełną, liniową historię wersji.
+- Nową pracę ZAWSZE zaczynaj od aktualnego `origin/main` (`git fetch origin main`
+  najpierw!). W przeszłości równoległe sesje tworzyły gałęzie od przestarzałych
+  baz → zdublowane numery wersji (dwa różne „v6.4"–„v6.6") i rozjazd historii.
+- Po scaleniu do `main` usuń gałąź roboczą. Nie zostawiaj osieroconych gałęzi.
+- Zainstalowaną u użytkownika wersję potwierdza `window.__adblockSpoof` w konsoli
+  lub badge wersji w popupie.
 
 ## Architektura
 
@@ -30,11 +39,14 @@ content.js           rdzeń, world: MAIN, document_start, allFrames
 background.js        service worker: dynamiczna rejestracja skryptów + licznik
 bridge.js            world: ISOLATED — przekazuje postMessage → chrome.runtime
 popup.html/popup.js  UI: toggle per domena/adres + licznik usuniętych ścian
+                     + badge wersji (z chrome.runtime.getManifest().version)
 rules/rules.json     7 reguł declarativeNetRequest (redirect ad-check → fake JSON, GPT)
 fake-scripts/        oryginalne skrypty Google (gpt.js 112KB, pubads_impl.js 596KB)
 icons/               16/32/48/128px PNG (neonowe zielone koło + żółty bolt)
 scripts/lint.mjs     walidacja składni + JSON + zakresu (npm run lint)
-package.json         "lint": "node scripts/lint.mjs"
+scripts/build-zip.mjs budowa paczki instalacyjnej (npm run build)
+package.json         "lint" + "build"
+CHANGELOG.md         pełna historia wersji (CO i DLACZEGO)
 README.md            dokumentacja dla użytkownika
 ```
 
@@ -69,9 +81,13 @@ buduje `excludeMatches` i re-rejestruje content.js + bridge.js dynamicznie przez
 - **WP framework intercept**: Proxy na `window.WP`, patchuje `gaf.loadBunch` aby
   zawsze przekazywać `hasAdblock=false`. Obecność `window.WP` = automatycznie
   wywołuje `markWall()`.
-- **`__INIT_CONFIG__` intercept**: pasywny setter; gdy strona ustawia `randvar`
-  (losowa nazwa funkcji chowającej treść po każdym slocie), mockujemy ją no-opem
-  z `configurable:false`. Wykrycie = `markWall()`.
+- **`__INIT_CONFIG__` intercept**: pasywny setter; wykrycie = `markWall()`.
+  `randvar` (losowa nazwa funkcji wywoływanej inline po każdym slocie) dostaje
+  stabilny wrapper, który wymusza `args[2]=false` (hasAdblock/withPlaceholder)
+  i **kolejkuje wywołania sprzed przypisania prawdziwej funkcji**, odtwarzając
+  je po przypisaniu (v6.11) — bez kolejki pierwszy slot (zdjęcie wiodące)
+  trafiał w no-op i obraz zostawał biały. NIE robić z randvar czystego no-opa —
+  sloty (tekst i obrazki) nigdy by się nie odsłoniły (lekcja z v6.2).
 - **Lazy Piano shim**: `window.tp` jako pasywna kolejka; pełny mock aktywuje się
   dopiero gdy strona wywołuje Piano API (`init`, `experience`). Nie psuje stron
   używających `window.tp` do czegoś innego.
@@ -108,13 +124,34 @@ Trzy metody (wystarczy jedna):
   (fixed/absolute/z-index≥1000 OR selektor Piano).
 - `revealArticleContent()` — odkrywa `article`, `main`, `[class*="article"]`,
   `[class*="Article"]` jeśli schowane inline przez skrypt (nie przez CSS autora).
-- `revealMainMedia()` (v6.4) — WP czasem chowa GŁÓWNE zdjęcie (hero) wstrzykując
-  na `<img class="wp-media-image">` inline `display:none!important` (obok
-  `width/height:100%;object-fit:cover`), a stan „odsłoń" nie wraca przy aktywnym
-  adblocku. Odkrywamy tylko **załadowane** zdjęcia (`complete && naturalWidth>0`)
-  w kontenerach treści (`[data-mainmedia-photo]`, `.article-img-placeholder`,
-  `article/main figure`, `article img.wp-media-image`) — niezaładowane lazy-obrazki
-  zostawiamy loaderowi, nie ruszamy reklam.
+- `revealMainMedia()` + `installMediaReveal()` (v6.4–6.5, zawężone w v6.10) — WP
+  czasem chowa GŁÓWNE zdjęcie (hero) wstrzykując na `<img class="wp-media-image">`
+  inline `display:none!important` i potrafi je schować PONOWNIE po naszym
+  odsłonięciu, więc trzymamy trwały MutationObserver re-odsłaniający. Obserwator
+  jest podpięty TYLKO pod kontenery `MEDIA_CONTAINER` (małe `<figure>` itp.) —
+  NIGDY pod całe `body` z `attributes:true` (przyczyna wycieku RAM, patrz niżej).
+  Odkrywamy tylko **załadowane** zdjęcia (`complete && naturalWidth>0`);
+  niezaładowane lazy-obrazki zostawiamy loaderowi, nie ruszamy reklam.
+- `removeMarkerOverlays()` (v6.11) — ściany toolkitspro (np. fxmag.pl) mają klasy
+  haszowane per-dzień; stała jest tylko ikona `adblock_new_icon`. Od niej
+  wspinamy się do nakładki `position:fixed` z `z-index≥1000` i usuwamy ją całą.
+
+### Budżet wydajności i pamięci (v6.10) — NIE COFAĆ tych zasad
+
+Na portalach WP `window.WP` włącza warstwę ciężką od razu, a DOM mutuje tam
+bez przerwy — bez limitów rozszerzenie zjadało RAM do absurdalnych rozmiarów
+(zgłoszenie użytkownika przy v6.9). Obowiązujące zasady:
+
+- `runHeavy()` wyłącznie przez dławik `runHeavyThrottled()` — max 1 przebieg/s.
+- Główny MutationObserver żyje 3 minuty; potem wolny tick rezerwowy co 15 s
+  (tylko `visibilityState === 'visible'`). Detekcję po tym czasie zapewniają
+  przechwyty zdarzeniowe (WP, `__INIT_CONFIG__`, Piano, script killer).
+- `textMatchesSignature()` pomija elementy o >1500 potomków PRZED odczytem
+  `textContent` (odczyt na root React = sklejenie całego tekstu strony w string).
+- Style wstrzykiwane idempotentnie (nie przebudowywać `<style>` bez zmiany treści).
+- Skany po dzieciach kontenerów zamiast `querySelectorAll` po całych poddrzewach.
+- Nowe MutationObservery: zawsze z ograniczonym zakresem (konkretne elementy,
+  nie `body` z `subtree+attributes`) albo z ograniczonym czasem życia.
 
 ### fxmag.pl (v6.3) — Next.js/React, dwutorowa detekcja
 
@@ -142,6 +179,13 @@ xhr.onload = () => e(xhr.responseURL !== url); // redirect → adblock
 
 - **Paywalle serwerowe** (np. Onet po X akapitach) — rozszerzenie ich NIE obchodzi.
   Jeśli tekst nie istnieje w HTML, nie ma czego odkrywać.
+- **Ściana w playerze wideo WP** („Wyłącz AdBlocka, aby obejrzeć materiał") —
+  NIEOBSŁUGIWANA, świadomie (v6.6–6.9). Decyzję podejmuje `window.WP.crux.sealed()`
+  spięty z potokiem impresji reklamowych; wszystkie punkty zaczepienia są
+  zamknięte w closure modułów webpacka, `crux` jest `Object.frozen`, a
+  `WP.crux` non-configurable. Bez wpuszczenia reklam nie da się tego wiarygodnie
+  oszukać — próby (mock IMA, poller crux) wycofano w v6.9. Szczegóły w
+  CHANGELOG v6.6–v6.9. Nie podejmuj kolejnych prób bez nowych ustaleń.
 - **Shadow DOM** — część nowoczesnych ścian renderuje się w shadow root,
   niewidoczna dla querySelectorAll. Nieobsługiwane (przyszłe ulepszenie).
 - Rozszerzenie działa tylko na `http://` i `https://`. Strony spoza listy nie

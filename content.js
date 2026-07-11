@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.10
+// Universal Adblock Spoof v6.11
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -15,8 +15,8 @@
   'use strict';
 
   // Znacznik wersji — do potwierdzenia w konsoli, że ten kod jest aktywny:
-  //   window.__adblockSpoof   →   "6.10"
-  try { window.__adblockSpoof = '6.10'; } catch (e) {}
+  //   window.__adblockSpoof   →   "6.11"
+  try { window.__adblockSpoof = '6.11'; } catch (e) {}
 
   // Czy wykryto ścianę adblock. Dopóki false — warstwa ciężka śpi.
   var wallDetected = false;
@@ -118,23 +118,32 @@
             try {
               var rv = val.randvar;
               var _realRv = null;
-              // Wrappery utworzone raz — WP czyta window[randvar] przy każdym
-              // slocie; tworzenie nowej funkcji per odczyt = zbędny churn GC.
-              var _noopRv = function () {};
-              var _wrappedRv = function () {
+              var _rvPending = []; // wywołania zanim prawdziwa fn zostanie przypisana
+              // Stabilny wrapper (jedna referencja — bez churnu GC przy każdym
+              // odczycie):
+              //  • wymusza hasAdblock=false,
+              //  • KOLEJKUJE wczesne wywołania i odtwarza je po przypisaniu fn.
+              // Bez kolejki pierwszy slot (zdjęcie wiodące) odpalał się przed
+              // przypisaniem randvar → trafiał w no-op → obraz zostawał biały.
+              var _rvWrapper = function () {
                 var args = Array.prototype.slice.call(arguments);
                 if (args.length > 2) args[2] = false; // hasAdblock=false
-                return _realRv.apply(this, args);
+                if (_realRv) return _realRv.apply(this, args);
+                _rvPending.push({ ctx: this, args: args });
               };
               Object.defineProperty(window, rv, {
                 configurable: true,
                 enumerable: true,
-                get: function () {
-                  // no-op zanim strona przypisze prawdziwą funkcję
-                  return _realRv ? _wrappedRv : _noopRv;
-                },
+                get: function () { return _rvWrapper; },
                 set: function (fn) {
-                  if (typeof fn === 'function') _realRv = fn;
+                  if (typeof fn === 'function') {
+                    _realRv = fn;
+                    var queued = _rvPending;
+                    _rvPending = [];
+                    queued.forEach(function (c) {
+                      try { _realRv.apply(c.ctx, c.args); } catch (e) {}
+                    });
+                  }
                 }
               });
             } catch (e) {}
@@ -497,6 +506,7 @@
     'wyłącz program blokujący', 'umieść naszą stronę na białej liście',
     // PL — fxmag
     'blokujesz reklamy', 'nie widzisz tej strony', 'korzystając z adblocka',
+    'korzystajac z adblocka',
     // EN
     'using adblock', 'using an ad blocker', 'disable adblock', 'disable your ad blocker',
     'turn off your ad blocker', 'pause adblock', 'whitelist', 'whitelisting',
@@ -511,7 +521,10 @@
     '[class*="adblock-info"]', '[class*="AdBlockInfo"]', '[class*="adBlockInfo"]',
     '[class*="adblock-screen"]', '[class*="fc-ab-"]', '.fc-ab-root',
     '[class*="fc-dialog"]', '[id^="tp-"]', '[class*="tp-modal"]',
-    '[class*="tp-backdrop"]', '[data-tp-id]'
+    '[class*="tp-backdrop"]', '[data-tp-id]',
+    // toolkitspro adblock (np. fxmag.pl) — reszta klas modala jest haszowana
+    // per-dzień (SHA256), ale ikona ostrzegawcza ma stałą, jawną nazwę.
+    '[class*="adblock_new_icon"]'
   ];
 
   function textMatchesSignature(el) {
@@ -611,9 +624,10 @@
       'screeningWallpaper', 'screeningWallpaperSecondary',
       'fullPageScreeningWallpaper', 'panelPremiumScreeningWallpaper',
       // 'screeningContainer' celowo pominięty — to kontener treści artykułu.
-      'slot15ScreeningWallpaper', 'slot16ScreeningWallpaper', 'slot17ScreeningWallpaper',
-      'slot18ScreeningWallpaper', 'slot19ScreeningWallpaper', 'slot38ScreeningWallpaper',
-      'slot39ScreeningWallpaper', 'slot40ScreeningWallpaper'
+      'slot3ScreeningWallpaper', 'slot15ScreeningWallpaper', 'slot16ScreeningWallpaper',
+      'slot17ScreeningWallpaper', 'slot18ScreeningWallpaper', 'slot19ScreeningWallpaper',
+      'slot38ScreeningWallpaper', 'slot39ScreeningWallpaper', 'slot40ScreeningWallpaper',
+      'slot75ScreeningWallpaper', 'slot501ScreeningWallpaper'
     ];
     var classes = SCREENING_KEYS.map(function (k) { return cfg.randomClasses[k]; }).filter(Boolean);
     if (!classes.length) return false;
@@ -775,6 +789,28 @@
     });
   }
 
+  // ── toolkitspro adblock (fxmag.pl itp.) ─────────────────────────────────────
+  // Modal renderuje się głęboko w drzewie React, a jego klasy są haszowane
+  // per-dzień (SHA256) — nie da się ich celować selektorem. Jedyną stałą,
+  // jawną klasą jest ikona `adblock_new_icon`. Od niej wspinamy się w górę do
+  // nakładki (position:fixed, wysoki z-index) i usuwamy całą nakładkę.
+  function removeMarkerOverlays() {
+    var markers = document.querySelectorAll('[class*="adblock_new_icon"]');
+    markers.forEach(function (marker) {
+      var node = marker, overlay = null;
+      for (var i = 0; node && node !== document.body && i < 12; i++) {
+        var cs;
+        try { cs = getComputedStyle(node); } catch (e) { cs = null; }
+        if (cs && cs.position === 'fixed' && (parseInt(cs.zIndex) || 0) >= 1000) {
+          overlay = node; // bierz najwyższego pasującego przodka
+        }
+        node = node.parentElement;
+      }
+      if (overlay) { overlay.remove(); reportRemoved(); }
+      else if (marker.parentElement) { marker.remove(); reportRemoved(); }
+    });
+  }
+
   function cleanGeneric() {
     document.querySelectorAll('div[class*="FilmCheaterSection"], div[class*="filmCheaterSection"]').forEach(function (el) {
       el.style.cssText = 'display:none!important;height:0!important;visibility:hidden!important;position:absolute!important;top:-99999px!important;pointer-events:none!important';
@@ -816,6 +852,7 @@
     applyWPScreeningCSS();
     cleanGeneric();
     removeAdblockPopups();
+    removeMarkerOverlays();
     revealArticleContent();
     installMediaReveal();
     installGoogletag();

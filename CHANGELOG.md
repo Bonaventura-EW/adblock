@@ -1,5 +1,39 @@
 # Changelog
 
+## v6.11 (2026-07-11)
+
+### Nowe (scalenie osieroconych gałęzi — porządek w repozytorium)
+Repozytorium miało kilka równoległych gałęzi z różnych sesji; wartościowe,
+niescalone zmiany zostały włączone tutaj, reszta (zdublowane rozwiązania tych
+samych błędów) wycofana. Gałęzie robocze po scaleniu usunięte.
+
+- **`randvar` z kolejką wczesnych wywołań** (z gałęzi `peaceful-hypatia`):
+  dotychczas wywołania `window[randvar](...)` sprzed przypisania prawdziwej
+  funkcji trafiały w no-op i ginęły — to była PRZYCZYNA białego zdjęcia
+  wiodącego (pierwszy slot odpala się najwcześniej). Teraz wrapper kolejkuje
+  wczesne wywołania i odtwarza je (z `hasAdblock=false`) zaraz po przypisaniu
+  funkcji przez stronę. Uzupełnia się z `installMediaReveal` (v6.5), które
+  zostaje jako siatka bezpieczeństwa.
+- **Dodatkowe klucze screeningowe WP**: `slot3`, `slot75`, `slot501`
+  (`*ScreeningWallpaper`) — z gałęzi `peaceful-hypatia`.
+- **toolkitspro adblock (np. fxmag.pl)** (z gałęzi `youthful-darwin`): klasy
+  modala są haszowane per-dzień (SHA256), stała jest tylko ikona
+  `adblock_new_icon`. Nowe `removeMarkerOverlays()` w warstwie ciężkiej:
+  od ikony wspina się do nakładki `position:fixed` z wysokim z-index i usuwa
+  ją całą. Dodany selektor `[class*="adblock_new_icon"]` w `WALL_SELECTORS`
+  i sygnatura `'korzystajac z adblocka'` (wariant bez ogonków).
+  Działa obok neutralizacji detekcji fxmag z v6.3 (obrona w głąb).
+
+### Świadomie NIE scalono
+- Agresywny CSS wymiarujący zdjęcia main-media (`width/height:100%` na
+  wszystkich `img`/`picture` w kontenerach) z `peaceful-hypatia` — ryzyko
+  psucia layoutu; problem rozwiązuje precyzyjniejsze `installMediaReveal`
+  (v6.5) + kolejka `randvar` (wyżej).
+- Fix ikon z `youthful-darwin` — nieaktualny (ikony podmienione w main
+  na prawdziwe PNG już wcześniej).
+
+---
+
 ## v6.10 (2026-07-11)
 
 ### Poprawki
