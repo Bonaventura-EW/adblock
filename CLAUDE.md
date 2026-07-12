@@ -177,6 +177,14 @@ xhr.onload = () => e(xhr.responseURL !== url); // redirect → adblock
 
 ## Zakres i ograniczenia
 
+- **Niekompatybilne z AdBlockiem (getadblock.com)** — potwierdzone przez
+  użytkownika (2026-07): AdBlock 6.43 + spoof na portalach WP = lawinowy wzrost
+  RAM karty (AdBlock wycina elementy reklamowe, spoof utrzymuje sloty przy
+  życiu → wieczna przepychanka). Wyłączenie AdBlocka usuwa problem. Sama
+  wtyczka zmierzona jako czysta (v6.11: heap i RSS płaskie w 4 scenariuszach
+  na artykułach wiadomosci.wp.pl, w tym z uBlock Origin Lite). Zalecany
+  bloker: uBlock Origin. Przy zgłoszeniu „wtyczka zżera RAM" najpierw pytaj
+  o listę innych rozszerzeń.
 - **Paywalle serwerowe** (np. Onet po X akapitach) — rozszerzenie ich NIE obchodzi.
   Jeśli tekst nie istnieje w HTML, nie ma czego odkrywać.
 - **Ściana w playerze wideo WP** („Wyłącz AdBlocka, aby obejrzeć materiał") —

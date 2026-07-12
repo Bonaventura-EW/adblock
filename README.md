@@ -62,6 +62,18 @@ zepsułoby to spoof.
 > Po aktualizacji plików kliknij **Odśwież** przy rozszerzeniu w
 > `vivaldi://extensions`.
 
+### Z jakim blokerem używać
+
+Rozszerzenie jest projektowane i testowane w parze z **uBlock Origin**.
+
+⚠️ **Nie łącz z AdBlockiem (getadblock.com)** — potwierdzony przypadek (2026-07,
+portale WP typu wiadomosci.wp.pl): przy włączonym AdBlocku zużycie RAM karty
+rośnie do absurdalnych rozmiarów i spowalnia komputer. AdBlock (domyślnie
+z „Acceptable Ads") sam wycina elementy reklamowe ze strony, a spoof utrzymuje
+sloty reklamowe przy życiu — obie strony przepychają się bez końca. Po
+wyłączeniu AdBlocka problem znika; sama ta wtyczka (v6.11) w pomiarach
+(heap JS + RSS procesów, 4 scenariusze, do 10 min) ma pamięć płaską.
+
 ## Popup — wyłączanie per domena / adres
 
 Rozszerzenie działa wszędzie, ale czasem może kolidować z konkretną stroną.
