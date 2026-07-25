@@ -1,5 +1,30 @@
 # Changelog
 
+## v6.12 (2026-07-25)
+
+### Naprawione
+- **fxmag.pl** — ściana „Nie widzisz tej strony, bo blokujesz reklamy" wracała
+  po ~20 s. Strona przeszła na bibliotekę
+  [`just-detect-adblock`](https://github.com/wmcmurray/just-detect-adblock)
+  (webpack moduł `20228`). Dla Vivaldi/Chromium (nie Brave, nie Opera) cała
+  detekcja to test „przynęty" `o()`, którego dotąd nie pokonywaliśmy w całości:
+  - sprawdza **geometrię** wstrzykniętego `<div>` z klasami reklam
+    (`offsetParent`, `offsetHeight`, `offsetWidth`, `offsetTop`, `offsetLeft`,
+    `clientHeight`, `clientWidth`) — gdy uBlock ukryje przynętę, wszystkie `0`/`null`,
+  - sprawdza `getComputedStyle` przez **metodę** `getPropertyValue("display")`
+    (poprzedni spoof obsługiwał tylko dostęp przez właściwość `.display`).
+- **Fix (blok „BAIT SPOOF" w content.js):**
+  - `patchGeom()` — gettery na `HTMLElement`/`Element.prototype`; dla przynęt
+    zwraca wartość niezerową, gdy realna wyszła `0`/`null`. Dla innych elementów:
+    oryginał (zero efektów ubocznych, potwierdzone testem w Chromium).
+  - Proxy `getComputedStyle` obsługuje teraz również `getPropertyValue()`
+    (`display`/`visibility`/`opacity`/`height`/`width`).
+  - Wspólny `isBaitEl()` rozpoznaje przynętę po klasach/id reklam.
+- Efekt: `o()` → `false` → `detectAnyAdblocker()` → `false` → React nie renderuje
+  ściany (blokada u źródła). Zweryfikowane oryginalną funkcją `o()` z biblioteki:
+  bez fiksa `detected=true`, z fiksem `detected=false`. Działa obok
+  `removeMarkerOverlays()` z v6.11 (obrona w głąb — gdyby ściana jednak powstała).
+
 ## v6.11 (2026-07-11)
 
 ### Nowe (scalenie osieroconych gałęzi — porządek w repozytorium)

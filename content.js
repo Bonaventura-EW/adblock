@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.11
+// Universal Adblock Spoof v6.12
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -15,8 +15,8 @@
   'use strict';
 
   // Znacznik wersji — do potwierdzenia w konsoli, że ten kod jest aktywny:
-  //   window.__adblockSpoof   →   "6.11"
-  try { window.__adblockSpoof = '6.11'; } catch (e) {}
+  //   window.__adblockSpoof   →   "6.12"
+  try { window.__adblockSpoof = '6.12'; } catch (e) {}
 
   // Czy wykryto ścianę adblock. Dopóki false — warstwa ciężka śpi.
   var wallDetected = false;
@@ -347,24 +347,82 @@
     return _xhrSend.apply(this, arguments);
   };
 
-  // ── BAIT SPOOF (getComputedStyle) — tylko ścisłe nazwy bait, bezpieczne ──────
-  var BAIT = ['adsbox', 'adsbygoogle', 'pub_300x250', 'pub_728x90'];
+  // ── BAIT SPOOF — detektory „przynęty" (getComputedStyle + geometria) ─────────
+  // Popularne biblioteki (np. just-detect-adblock używane przez fxmag.pl) tworzą
+  // pułapkę: <div> z klasami reklam (pub_300x250, text-ad, adBanner…), wstawiają
+  // do <body> i sprawdzają, czy uBlock ją ukrył. Sprawdzają DWOMA drogami:
+  //   (a) GEOMETRIA — offsetParent===null lub offset/clientWidth/Height===0,
+  //   (b) getComputedStyle().getPropertyValue('display'|'visibility').
+  // Jeśli pułapka wygląda na ukrytą → zgłaszają adblocka. Udajemy, że jest
+  // widoczna na OBU drogach. Zmieniamy zachowanie WYŁĄCZNIE dla elementów-pułapek
+  // (rozpoznanych po ściśle reklamowych klasach/id) — reszta strony bez zmian.
+  function isBaitEl(el) {
+    if (!el || el.nodeType !== 1) return false;
+    var cn = (typeof el.className === 'string' ? el.className : '') + ' ' + (el.id || '');
+    if (cn.length < 5 || cn.length > 2000) return false;
+    return cn.indexOf('pub_300x250') !== -1 || cn.indexOf('pub_728x90') !== -1 ||
+           cn.indexOf('adsbox') !== -1 || cn.indexOf('adsbygoogle') !== -1;
+  }
+
+  // (a) Geometria — gdy uBlock ukryje pułapkę, offsetParent=null i wymiary=0.
+  //     Patchujemy gettery na prototypie, ale realną wartość podmieniamy TYLKO
+  //     dla pułapek i TYLKO gdy wyszła 0/null (element faktycznie ukryty).
+  //     Dla każdego innego elementu zwracamy oryginał → zero efektów ubocznych.
+  function patchGeom(proto, prop, fallback) {
+    var d = Object.getOwnPropertyDescriptor(proto, prop);
+    if (!d || !d.get) return;
+    var orig = d.get;
+    try {
+      Object.defineProperty(proto, prop, {
+        configurable: true, enumerable: d.enumerable,
+        get: function () {
+          if (isBaitEl(this)) {
+            var real;
+            try { real = orig.call(this); } catch (e) { real = null; }
+            if (real === 0 || real === null || real === undefined) return fallback();
+            return real;
+          }
+          return orig.call(this);
+        }
+      });
+    } catch (e) {}
+  }
+  var _body = function () { return document.body || document.documentElement; };
+  patchGeom(HTMLElement.prototype, 'offsetParent', _body);
+  patchGeom(HTMLElement.prototype, 'offsetHeight', function () { return 10; });
+  patchGeom(HTMLElement.prototype, 'offsetWidth', function () { return 10; });
+  patchGeom(HTMLElement.prototype, 'offsetTop', function () { return 10; });
+  patchGeom(HTMLElement.prototype, 'offsetLeft', function () { return 10; });
+  patchGeom(Element.prototype, 'clientHeight', function () { return 10; });
+  patchGeom(Element.prototype, 'clientWidth', function () { return 10; });
+
+  // (b) getComputedStyle — display/visibility/opacity zawsze „widoczne", zarówno
+  //     przez dostęp do właściwości (.display) jak i metodę getPropertyValue().
   var _gcs = window.getComputedStyle;
   window.getComputedStyle = function (el, pseudo) {
     var style = _gcs.call(window, el, pseudo);
-    if (el && el.className && typeof el.className === 'string') {
-      var classes = el.className.split(/\s+/).concat([el.id || '']);
-      if (classes.some(function (c) { return BAIT.indexOf(c) !== -1; })) {
-        return new Proxy(style, {
-          get: function (t, p) {
-            if (p === 'display') return 'block';
-            if (p === 'visibility') return 'visible';
-            if (p === 'opacity') return '1';
-            if (p === 'height') return '1px';
-            var v = t[p]; return typeof v === 'function' ? v.bind(t) : v;
+    if (isBaitEl(el)) {
+      return new Proxy(style, {
+        get: function (t, p) {
+          if (p === 'display') return 'block';
+          if (p === 'visibility') return 'visible';
+          if (p === 'opacity') return '1';
+          if (p === 'height') return '1px';
+          if (p === 'width') return '1px';
+          if (p === 'getPropertyValue') {
+            return function (prop) {
+              var lp = String(prop).toLowerCase();
+              if (lp === 'display') return 'block';
+              if (lp === 'visibility') return 'visible';
+              if (lp === 'opacity') return '1';
+              if (lp === 'height') return '1px';
+              if (lp === 'width') return '1px';
+              return t.getPropertyValue(prop);
+            };
           }
-        });
-      }
+          var v = t[p]; return typeof v === 'function' ? v.bind(t) : v;
+        }
+      });
     }
     return style;
   };
