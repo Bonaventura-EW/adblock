@@ -79,8 +79,12 @@ buduje `excludeMatches` i re-rejestruje content.js + bridge.js dynamicznie przez
   bezpieczne globalnie).
 - **fetch/XHR intercept**: przechwytuje wzorce URL (`/adblock/check`,
   `tinypass.com`, `piano.io` itp.) i zwraca fałszywy JSON `{"adblock":false}`.
-- **Bait spoof**: `getComputedStyle` zwraca `display:block` dla elementów z
-  klasami `adsbox`, `adsbygoogle`, `pub_300x250`, `pub_728x90`.
+- **Bait spoof**: dla elementów-przynęt (klasy/id `adsbox`, `adsbygoogle`,
+  `pub_300x250`, `pub_728x90`) udajemy widoczność na dwa sposoby — `getComputedStyle`
+  (`display:block`, także przez `getPropertyValue()`) oraz geometria
+  (`offsetParent/offsetHeight/clientWidth…` niezerowe, gdy uBlock ukrył przynętę).
+  Pokonuje biblioteki typu `just-detect-adblock`. Zmienia zachowanie tylko dla
+  przynęt — pozostałe elementy bez zmian.
 - **DOM protection**: `Node.removeChild` / `Element.remove` / `innerHTML` setter
   w trybie pass-through dopóki `!wallDetected`; aktywna ochrona `.wp-content-text-raw`.
 - **Script killer**: neutralizuje inline `<script>` zawierające
@@ -109,27 +113,50 @@ Trzy metody (wystarczy jedna):
 - `revealArticleContent()` — odkrywa `article`, `main`, `[class*="article"]`,
   `[class*="Article"]` jeśli schowane inline przez skrypt (nie przez CSS autora).
 
-### fxmag.pl (v6.3) — Next.js/React, dwutorowa detekcja
+### fxmag.pl (v6.4) — Next.js/React, biblioteka `just-detect-adblock`
 
-Kod w chunk `7015-beda8594e24d46d9.js`:
+Strona porzuciła stary mechanizm (`#stndz-style` + `DetectByGoogleAd`) i używa
+teraz biblioteki [`just-detect-adblock`](https://github.com/wmcmurray/just-detect-adblock)
+(webpack module `20228`). Ściana pojawia się z ~20-sekundowym opóźnieniem.
+
+Dla Vivaldi/Chromium (nie Brave, nie Opera) cała detekcja to funkcja `o()` —
+test „przynęty" (bait). Ścieżka XHR do `raw.githubusercontent.com/.../baits/...`
+odpala się TYLKO w Brave/Operze, więc dla Vivaldi jest bez znaczenia.
 
 ```javascript
-// Check 1 — element #stndz-style wstrzyknięty przez uBlock cosmetic engine
-null !== document.getElementById("stndz-style") ? e(true) : DetectByGoogleAd(cb)
-
-// Check 2 — DetectByGoogleAd
-script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js";
-script.onerror = () => e(true);   // skrypt zablokowany → adblock
-xhr.onload = () => e(xhr.responseURL !== url); // redirect → adblock
+function o() {
+  if (document.body.getAttribute("abp") !== null) return true;  // Adblock Plus
+  var n = document.createElement("div");
+  n.className = "pub_300x250 pub_728x90 text-ad textAd adSense adBlock adBanner …";
+  n.style = "width:1px; height:1px; position:absolute; left:-10000px; top:-1000px";
+  document.body.appendChild(n);
+  // (a) GEOMETRIA — uBlock ukrywa przynętę → offsetParent=null, wymiary=0:
+  if (n.offsetParent === null || n.offsetHeight == 0 || n.offsetLeft == 0 ||
+      n.offsetTop == 0 || n.offsetWidth == 0 || n.clientHeight == 0 || n.clientWidth == 0) return true;
+  // (b) STYL — getComputedStyle przez METODĘ getPropertyValue:
+  var cs = getComputedStyle(n, null);
+  if (cs.getPropertyValue("display") == "none" || cs.getPropertyValue("visibility") == "hidden") return true;
+  return false;
+}
 ```
 
-Ściana pojawia się z 20-sekundowym opóźnieniem (`setTimeout(show, 20000)`).
+**Nasze neutralizacje (content.js, blok „BAIT SPOOF"):**
+- `isBaitEl()` rozpoznaje przynętę po ściśle reklamowych klasach/id
+  (`pub_300x250`, `pub_728x90`, `adsbox`, `adsbygoogle`).
+- **Geometria** — `patchGeom()` nakłada gettery na `HTMLElement.prototype`
+  (`offsetParent/offsetHeight/offsetWidth/offsetTop/offsetLeft`) i
+  `Element.prototype` (`clientHeight/clientWidth`). Realną wartość podmienia na
+  niezerową TYLKO dla przynęt i TYLKO gdy wyszła `0`/`null` (element faktycznie
+  ukryty). Dla każdego innego elementu zwraca oryginał → zero efektów ubocznych.
+- **Styl** — Proxy na `getComputedStyle` zwraca `display:block`/`visibility:visible`
+  zarówno przez właściwość (`.display`), jak i przez metodę `getPropertyValue()`
+  (tej formy używa `just-detect-adblock` — wcześniej ją pomijaliśmy).
+- Efekt: `o()` zwraca `false` → `detectAnyAdblocker()` resolvuje `false` →
+  React nigdy nie ustawia stanu „wykryto adblock", ściana się nie renderuje.
 
-**Nasze neutralizacje (content.js `installFxmagNeutraliser`):**
-- MutationObserver usuwa `#stndz-style` natychmiast po pojawieniu się w DOM.
-- MutationObserver przechwytuje `<script src="…adsbygoogle.js">`: `onerror` → no-op, `onload` wywoływane ręcznie.
-- XHR interceptor: `responseURL` mockowany jako `self._surl` (nie wygląda na redirect).
-- `pagead2.googlesyndication.com/pagead/js/adsbygoogle` dodany do `AD_PATTERNS` (fetch-level).
+Stary `installFxmagNeutraliser` (usuwanie `#stndz-style`, neutralizacja `onerror`
+skryptów `pagead`) zostaje — jest nieszkodliwy i chroni inne strony wciąż
+używające poprzedniej metody.
 
 ## Zakres i ograniczenia
 

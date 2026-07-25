@@ -1,5 +1,36 @@
 # Changelog
 
+## v6.4 (2026-07-25)
+
+### Naprawione
+- **fxmag.pl** — ściana „Nie widzisz tej strony, bo blokujesz reklamy" znów
+  pojawiała się po ~20 s. Strona zmieniła mechanizm: porzuciła stary
+  `#stndz-style` + `DetectByGoogleAd`, a wdrożyła bibliotekę
+  [`just-detect-adblock`](https://github.com/wmcmurray/just-detect-adblock).
+  Dla Vivaldi/Chromium detekcja opiera się na teście „przynęty" (bait):
+  - sprawdza **geometrię** wstrzykniętego `<div>` z klasami reklam
+    (`offsetParent`, `offsetHeight`, `offsetWidth`, `offsetTop`, `offsetLeft`,
+    `clientHeight`, `clientWidth`) — gdy uBlock ukryje przynętę, wszystkie = `0`/`null`,
+  - sprawdza `getComputedStyle` przez **metodę** `getPropertyValue("display")`.
+
+### Nowe (blok „BAIT SPOOF" w content.js)
+- **Spoof geometrii** — `patchGeom()` nakłada gettery na `HTMLElement.prototype`
+  i `Element.prototype`; dla elementów-przynęt zwraca wartości niezerowe, gdy
+  realne wyszły `0`/`null`. Dla każdego innego elementu — oryginał (zero efektów
+  ubocznych, potwierdzone testem w Chromium).
+- **getComputedStyle** — Proxy obsługuje teraz również metodę `getPropertyValue()`
+  (`display`/`visibility`/`opacity`/`height`/`width`), nie tylko dostęp przez
+  właściwość. Wcześniej `just-detect-adblock` omijał nasz spoof, bo używa formy
+  metody.
+- Wspólny `isBaitEl()` — rozpoznaje przynętę po ściśle reklamowych klasach/id.
+
+### Uwagi
+- Ścieżka XHR biblioteki (`raw.githubusercontent.com/.../baits/…`) uruchamia się
+  tylko w Brave/Operze — dla Vivaldi bez znaczenia, więc nietykana.
+- Stary `installFxmagNeutraliser` pozostaje (nieszkodliwy, chroni inne strony).
+
+---
+
 ## v6.3 (2026-06-02)
 
 ### Nowe
