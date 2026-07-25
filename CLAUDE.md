@@ -25,6 +25,11 @@ Repozytorium: `Bonaventura-EW/adblock`, branch główny: `main`.
 - Nową pracę ZAWSZE zaczynaj od aktualnego `origin/main` (`git fetch origin main`
   najpierw!). W przeszłości równoległe sesje tworzyły gałęzie od przestarzałych
   baz → zdublowane numery wersji (dwa różne „v6.4"–„v6.6") i rozjazd historii.
+- **PYTAJ PRZED WYPCHNIĘCIEM NA `main`.** Po skończonych zmianach (kod
+  zwalidowany, CHANGELOG uzupełniony, ZIP wystawiony) zrób commit lokalnie,
+  a potem ZAPYTAJ użytkownika, czy dodać to do `main`. Push dopiero po jego
+  zgodzie — decyzję o tym, co trafia do głównej linii, podejmuje użytkownik.
+  Dotyczy też sytuacji, gdy zmiana wygląda na oczywistą lub pilną.
 - Po scaleniu do `main` usuń gałąź roboczą. Nie zostawiaj osieroconych gałęzi.
 - Zainstalowaną u użytkownika wersję potwierdza `window.__adblockSpoof` w konsoli
   lub badge wersji w popupie.
@@ -273,7 +278,10 @@ Po każdej zmianie w kodzie rozszerzenia, ZAWSZE w tej kolejności:
    rozszerzenia, usuwa stare paczki `adblock-vivaldi-*.zip`).
 5. **Wystaw gotowy ZIP użytkownikowi do pobrania** (narzędzie wysyłki plików),
    żeby mógł go od razu zainstalować w przeglądarce.
-6. Commit + push (gałąź wg ustaleń; domyślnie `main`).
+6. **Commit lokalnie.**
+7. **ZAPYTAJ użytkownika, czy dodać zmiany do `main`** — i dopiero po jego
+   potwierdzeniu zrób `git push`. Nie wypychaj na `main` z własnej inicjatywy
+   (patrz „Zasady pracy z gałęziami" wyżej).
 
 ## Jak dodać obsługę nowej strony
 
