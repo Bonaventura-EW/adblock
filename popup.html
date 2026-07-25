@@ -39,14 +39,19 @@
       padding: 8px 0; gap: 10px;
     }
     .row + .row { border-top: 1px solid #2c2c32; }
-    .row label { flex: 1; cursor: pointer; }
+    /* Tylko opis po lewej — NIE slider (ten też jest <label>, ale w .switch). */
+    .row > label { flex: 1; cursor: pointer; }
     .row small { display: block; color: #8a9096; font-size: 11px; margin-top: 2px; }
     .switch { position: relative; width: 38px; height: 22px; flex: none; }
     .switch input { opacity: 0; width: 0; height: 0; }
+    /* .slider MUSI być <label for="…">, nie <span>: input jest niewidoczny
+       (0×0), a slider go przykrywa — jako <span> połykał kliknięcie i
+       przełącznik nie reagował na myszkę (v6.14). NIE zamieniać na <span>. */
     .slider {
       position: absolute; inset: 0; background: #4a4a52; border-radius: 22px;
       transition: .15s; cursor: pointer;
     }
+    .switch input:disabled + .slider { opacity: .45; cursor: not-allowed; }
     .slider::before {
       content: ""; position: absolute; height: 16px; width: 16px; left: 3px; top: 3px;
       background: #fff; border-radius: 50%; transition: .15s;
@@ -88,7 +93,7 @@
       </label>
       <span class="switch">
         <input type="checkbox" id="domainToggle" checked>
-        <span class="slider"></span>
+        <label class="slider" for="domainToggle"></label>
       </span>
     </div>
     <div class="row">
@@ -98,7 +103,7 @@
       </label>
       <span class="switch">
         <input type="checkbox" id="urlToggle" checked>
-        <span class="slider"></span>
+        <label class="slider" for="urlToggle"></label>
       </span>
     </div>
   </section>

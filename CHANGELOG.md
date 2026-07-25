@@ -1,5 +1,34 @@
 # Changelog
 
+## v6.14 (2026-07-25)
+
+### Naprawione
+- **Przełączniki w popupie nie reagowały na kliknięcie — PRAWDZIWA przyczyna.**
+  W `popup.html` widoczna „pigułka" przełącznika była `<span class="slider">`,
+  a nie `<label for="…">`. Sam `<input type="checkbox">` jest niewidoczny
+  (`opacity:0; width:0; height:0`), a slider leży NA nim (`position:absolute;
+  inset:0`) — więc `<span>` połykał kliknięcie i nie dochodziło ono do
+  checkboxa. Klikalny był wyłącznie **opis tekstowy** po lewej (ten miał
+  `<label for>`). To wyjaśnia zgłoszenie „raz działają, raz nie": trafienie w
+  tekst działało, trafienie w przełącznik nie.
+  - Slider zamieniony na `<label class="slider" for="domainToggle|urlToggle">`.
+  - `.row label` zawężone do `.row > label`, żeby reguła opisu nie łapała
+    slidera (też jest `<label>`, ale wewnątrz `.switch`).
+  - Dodany stan wizualny dla wyłączonego przełącznika
+    (`input:disabled + .slider` — przygaszony, `cursor:not-allowed`).
+  - W CSS komentarz „NIE zamieniać na `<span>`", żeby błąd nie wrócił.
+- Zweryfikowane w Chromium (klik myszą w realny popup): przed poprawką klik w
+  pigułkę → 0 zdarzeń `change`, storage pusty, brak przeładowania karty; po
+  poprawce → stan zapisany i karta odświeżona. Testy regresji: układ graficzny
+  bez zmian (38×22 px), klik w tekst = dokładnie 1 przełączenie (bez
+  podwójnego), powrót do „włączone" działa, drugi przełącznik też.
+
+### Uwagi
+- Naprawa z v6.13 (serializacja rejestracji + atomowy `updateContentScripts`)
+  była potrzebna i zostaje — ale sama nie mogła pomóc, bo problemem był
+  niedostępny klikalnie element UI. Dopiero v6.13 + v6.14 dają działający
+  przełącznik.
+
 ## v6.13 (2026-07-25)
 
 ### Naprawione

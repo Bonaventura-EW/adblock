@@ -84,6 +84,12 @@ buduje `excludeMatches` i aktualizuje content.js + bridge.js dynamicznie przez
 `chrome.scripting`. Odpalane przy `onInstalled`, `onStartup`, `storage.onChanged`
 oraz na żądanie z popupu (`reapply-registration`).
 
+**Klikalność przełącznika (v6.14) — NIE COFAĆ:** w `popup.html` „pigułka"
+przełącznika MUSI być `<label class="slider" for="…">`. Jako `<span>` przykrywała
+niewidoczny (`0×0`, `opacity:0`) `<input type="checkbox">` i połykała kliknięcie —
+działał tylko klik w opis tekstowy, stąd wrażenie „raz działa, raz nie". Reguła
+opisu jest zawężona do `.row > label`, żeby nie łapała slidera.
+
 **Niezawodność przełączników (v6.13) — NIE COFAĆ:** rejestracja jest
 SERIALIZOWANA (`_applyChain` — kolejne wywołania czekają na poprzednie), więc dwa
 równoległe przebiegi nie kolidują. Wcześniej `unregister`+`register` w wyścigu
