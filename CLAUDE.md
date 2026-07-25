@@ -9,6 +9,16 @@ ma, więc nie zasłania treści. Reklamy nadal blokuje uBlock.
 
 Repozytorium: `Bonaventura-EW/adblock`, branch główny: `main`.
 
+### ⚠️ Zasada: CHANGELOG (CZYTAJ NAJPIERW)
+
+- **PRZED jakąkolwiek zmianą — przeczytaj `CHANGELOG.md`.** Mówi, na jakiej
+  wersji realnie jesteś i co ostatnio zmieniono. Chroni przed pracą na
+  przestarzałym stanie i błędną numeracją.
+- **PO każdej zmianie — zaktualizuj `CHANGELOG.md`**: nowy wpis na górze (numer
+  `6.X`, data, „co i dlaczego"). Numer podbij SPÓJNIE w: `manifest.json` →
+  `version`, nagłówku `content.js`, markerze `window.__adblockSpoof` w
+  `content.js`. Zip zbuduj `npm run build` (nazwa bierze wersję z manifestu).
+
 ### Zasady pracy z gałęziami (lekcja z porządków przy v6.10/6.11)
 
 - **`main` jest jedynym źródłem prawdy** — zawiera pełną, liniową historię wersji.
@@ -70,9 +80,18 @@ content.js (MAIN)
 ### Wyłączanie per domena/adres
 
 `background.js` czyta `storage.local.disabledDomains[]` i `disabledUrls[]`,
-buduje `excludeMatches` i re-rejestruje content.js + bridge.js dynamicznie przez
-`chrome.scripting`. Odpalane przy `onInstalled`, `onStartup`,
-`storage.onChanged`.
+buduje `excludeMatches` i aktualizuje content.js + bridge.js dynamicznie przez
+`chrome.scripting`. Odpalane przy `onInstalled`, `onStartup`, `storage.onChanged`
+oraz na żądanie z popupu (`reapply-registration`).
+
+**Niezawodność przełączników (v6.13) — NIE COFAĆ:** rejestracja jest
+SERIALIZOWANA (`_applyChain` — kolejne wywołania czekają na poprzednie), więc dwa
+równoległe przebiegi nie kolidują. Wcześniej `unregister`+`register` w wyścigu
+rzucały „Duplicate/Nonexistent script ID" (łykane przez `catch`) → przełącznik
+„raz działał, raz nie". Istniejące skrypty AKTUALIZUJEMY atomowym
+`updateContentScripts` (nie unregister+register), więc SW nie zginie „w połowie"
+i nie zostawi strony bez spoofu. Popup po zmianie wysyła `reapply-registration`,
+czeka na potwierdzenie i dopiero odświeża kartę — zmiana działa od razu.
 
 ## Kluczowe mechanizmy w content.js
 

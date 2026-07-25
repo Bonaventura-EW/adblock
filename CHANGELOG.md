@@ -1,5 +1,31 @@
 # Changelog
 
+## v6.13 (2026-07-25)
+
+### Naprawione
+- **Przełączniki w popupie „raz działały, raz nie".** Rejestracja skryptów w
+  `background.js` (`unregister`+`register`) bywała wyścigowa: dwa równoległe
+  przebiegi (szybkie przełączenie obu switchy albo `storage.onChanged` +
+  żądanie z popupu) rzucały „Duplicate/Nonexistent script ID"; błąd łykał
+  `catch`, więc zmiana wykluczeń po cichu się nie zapisywała. Dodatkowo service
+  worker (MV3) mógł zginąć MIĘDZY `unregister` a `register`, zostawiając stronę
+  bez spoofu.
+  - **Serializacja** — `_applyChain`: kolejne rejestracje czekają na poprzednie
+    (koniec wyścigu).
+  - **Atomowa aktualizacja** — istniejące skrypty zmieniamy przez
+    `updateContentScripts` (jedno wywołanie), a nie `unregister`+`register` →
+    brak okna, w którym SW może zginąć „w połowie".
+  - **Natychmiastowy efekt** — popup po zmianie wysyła `reapply-registration`,
+    czeka na potwierdzenie SW i dopiero wtedy odświeża kartę (bez ręcznego F5);
+    popup zostaje otwarty, więc można przełączyć oba switche.
+  - Zweryfikowane testem (mock `chrome.scripting`): 5 równoległych rejestracji →
+    0 błędów; stary kod w tym samym scenariuszu → 4 błędy.
+
+### Proces
+- **CLAUDE.md**: dodana zasada „przeczytaj `CHANGELOG.md` PRZED zmianami i
+  zaktualizuj go PO każdej zmianie" (na samej górze, do czytania w pierwszej
+  kolejności).
+
 ## v6.12 (2026-07-25)
 
 ### Naprawione

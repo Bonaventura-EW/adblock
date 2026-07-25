@@ -90,12 +90,35 @@
     refreshStatus(store);
   }
 
+  // Po zmianie: poczekaj aż service worker potwierdzi zastosowanie rejestracji,
+  // POTEM odśwież kartę — zmiana działa od razu i za każdym razem (bez ręcznego
+  // F5). Popup zostaje otwarty, więc można przełączyć oba switche.
+  async function applyAndReload() {
+    let applied = false;
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'reapply-registration' });
+      applied = !!(res && res.ok);
+    } catch (e) { /* SW mógł spać / brak odpowiedzi — pokażemy fallback */ }
+
+    els.hint.textContent = applied
+      ? 'Zastosowano — odświeżam tę stronę…'
+      : 'Odśwież stronę (F5), aby zastosować zmianę.';
+    showHint();
+
+    if (!applied) return;
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tab = tabs[0];
+      if (tab && tab.id != null && isWebUrl(tab.url)) chrome.tabs.reload(tab.id);
+    } catch (e) {}
+  }
+
   els.domainToggle.addEventListener('change', async () => {
     const store = await getStore();
     const next = toggleListMember(store.disabledDomains, currentHost, !els.domainToggle.checked);
     await chrome.storage.local.set({ disabledDomains: next });
     refreshStatus(await getStore());
-    showHint();
+    await applyAndReload();
   });
 
   els.urlToggle.addEventListener('change', async () => {
@@ -103,7 +126,7 @@
     const next = toggleListMember(store.disabledUrls, currentUrl, !els.urlToggle.checked);
     await chrome.storage.local.set({ disabledUrls: next });
     refreshStatus(await getStore());
-    showHint();
+    await applyAndReload();
   });
 
   els.reset.addEventListener('click', async () => {

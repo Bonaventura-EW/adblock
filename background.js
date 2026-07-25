@@ -28,7 +28,18 @@ function buildExcludeMatches(disabledDomains, disabledUrls) {
   return out;
 }
 
-async function applyRegistration() {
+// Serializacja rejestracji — kolejne wywołania NIE nakładają się. Wcześniej dwa
+// równoległe przebiegi (np. szybkie przełączenie obu switchy albo zdarzenie
+// storage + wiadomość z popupu) robiły jednocześnie unregister/register → drugi
+// rzucał „Duplicate/Nonexistent script ID", błąd był łykany, a przełącznik „raz
+// działał, raz nie". Teraz każde wywołanie czeka na poprzednie (także po błędzie).
+let _applyChain = Promise.resolve();
+function applyRegistration() {
+  _applyChain = _applyChain.then(doApplyRegistration, doApplyRegistration);
+  return _applyChain;
+}
+
+async function doApplyRegistration() {
   let store = {};
   try {
     store = await chrome.storage.local.get(['disabledDomains', 'disabledUrls']);
@@ -44,7 +55,8 @@ async function applyRegistration() {
       runAt: 'document_start',
       allFrames: true,
       world: 'MAIN',
-      persistAcrossSessions: true
+      persistAcrossSessions: true,
+      excludeMatches
     },
     {
       id: SCRIPT_IDS.bridge,
@@ -53,25 +65,41 @@ async function applyRegistration() {
       runAt: 'document_start',
       allFrames: true,
       world: 'ISOLATED',
-      persistAcrossSessions: true
+      persistAcrossSessions: true,
+      excludeMatches
     }
   ];
-  if (excludeMatches.length) {
-    scripts.forEach((s) => { s.excludeMatches = excludeMatches; });
-  }
 
+  // Istniejące skrypty AKTUALIZUJEMY jednym atomowym updateContentScripts (bez
+  // unregister+register), więc service worker nie może zginąć „w połowie" i
+  // zostawić strony bez spoofu. Puste excludeMatches ([]) czyści wykluczenia.
+  let existingIds = [];
   try {
     const existing = await chrome.scripting.getRegisteredContentScripts({
       ids: [SCRIPT_IDS.main, SCRIPT_IDS.bridge]
     });
-    if (existing && existing.length) {
-      await chrome.scripting.unregisterContentScripts({
-        ids: existing.map((s) => s.id)
-      });
-    }
-    await chrome.scripting.registerContentScripts(scripts);
+    existingIds = (existing || []).map((s) => s.id);
+  } catch (e) { /* załóż, że nic nie jest zarejestrowane */ }
+
+  const toUpdate = scripts
+    .filter((s) => existingIds.includes(s.id))
+    .map((s) => ({ id: s.id, matches: MATCHES, excludeMatches }));
+  const toRegister = scripts.filter((s) => !existingIds.includes(s.id));
+
+  try {
+    if (toUpdate.length) await chrome.scripting.updateContentScripts(toUpdate);
+    if (toRegister.length) await chrome.scripting.registerContentScripts(toRegister);
   } catch (e) {
-    console.error('[Adblock Spoof] registration failed:', e);
+    // Awaryjnie (np. niespójny rejestr): pełny reset i rejestracja od zera.
+    console.warn('[Adblock Spoof] nietypowy stan rejestracji, pełny reset:', e && e.message);
+    try {
+      await chrome.scripting.unregisterContentScripts({ ids: [SCRIPT_IDS.main, SCRIPT_IDS.bridge] });
+    } catch (e2) { /* mogło nie istnieć */ }
+    try {
+      await chrome.scripting.registerContentScripts(scripts);
+    } catch (e3) {
+      console.error('[Adblock Spoof] registration failed:', e3);
+    }
   }
 }
 
@@ -91,6 +119,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const next = (res.removedCount || 0) + 1;
       chrome.storage.local.set({ removedCount: next });
     });
+    return false;
+  }
+  // Popup prosi o natychmiastowe zastosowanie zmiany i czeka na potwierdzenie,
+  // zanim odświeży kartę — dzięki temu przeładowanie nie wyprzedza rejestracji.
+  if (msg && msg.type === 'reapply-registration') {
+    applyRegistration().then(
+      () => { try { sendResponse({ ok: true }); } catch (e) {} },
+      () => { try { sendResponse({ ok: false }); } catch (e) {} }
+    );
+    return true; // odpowiedź asynchroniczna — trzymaj port otwarty
   }
   return false;
 });
