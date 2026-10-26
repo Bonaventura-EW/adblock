@@ -1,5 +1,23 @@
 # Changelog
 
+## v6.7 (2026-10-26)
+
+### Nowe
+- **Popup pokazuje RAM tej karty** (duża liczba w sekcji „Pamięć tej karty"):
+  suma „private footprint" procesu strony i procesów jej ramek — ta sama miara
+  co w Menedżerze zadań. Do tego RAM całej przeglądarki i liczba procesów.
+  Źródło: globalny zrzut pamięci (`Tracing.requestMemoryDump`, memory-infra)
+  przez `chrome.debugger`; procesy karty z `TracingStartedInBrowser`
+  (ramki → `processId`). Pomiar trwa ok. 0,3–0,5 s.
+- Pomiar odpala się automatycznie przy otwarciu popupu; wynik młodszy niż 20 s
+  jest brany z pamięci service workera (ponowne otwarcie nie podłącza
+  debuggera). „Zmierz ponownie" wymusza nowy pomiar.
+- Próg w ocenie: karta ≥ 500 MB — „dużo", ≥ 1000 MB — „bardzo dużo".
+- Pole ręcznego wpisu z Menedżera zadań pokazuje się tylko, gdy pomiar RAM się
+  nie uda.
+
+---
+
 ## v6.6 (2026-10-26)
 
 ### Nowe

@@ -76,18 +76,25 @@ dynamicznie przez `chrome.scripting`. Odpalane przy `onInstalled`, `onStartup`,
 
 ### Monitor pamięci karty
 
-Rozszerzenie nie zna prawdziwego RAM-u karty: `chrome.processes` jest tylko w
-kanale Dev, a `performance.memory` jest zaokrąglane i prawie się nie odświeża.
-Dlatego dwa poziomy:
+Zwykłe API nie dają RAM-u karty: `chrome.processes` jest tylko w kanale Dev,
+a `performance.memory` jest zaokrąglane i prawie się nie odświeża. Dlatego dwa
+poziomy:
 
 1. **monitor.js** (zawsze, tanio) — co 30 s: liczba elementów DOM, iframe'ów,
    wideo, szacunek zdekodowanych obrazków, liczba żądań per host. Ocena przez
    `memcheck.js`; do service workera idzie tylko **zmiana poziomu** → znaczek
    „RAM" (żółty/czerwony) na ikonie dla tej karty.
-2. **„Zmierz dokładnie" w popupie** — `background.js` podłącza
-   `chrome.debugger` na ułamek sekundy: `Performance.getMetrics` +
+2. **Pomiar przy otwarciu popupu** — `background.js` podłącza
+   `chrome.debugger` na ok. 0,3–0,5 s: `Performance.getMetrics` +
    `Runtime.getHeapUsage` (sterta JS, obiekty DOM/Blink, bufory, węzły,
-   nasłuchiwacze). Przeglądarka pokazuje wtedy pasek „debuguje".
+   nasłuchiwacze) oraz **RAM karty**: `Tracing.start` (kategorie
+   `disabled-by-default-memory-infra` + `disabled-by-default-devtools.timeline`)
+   → `Tracing.requestMemoryDump` → `Tracing.end`. Ze zdarzeń `ph:'v'` bierzemy
+   `process_totals.private_footprint_bytes` (hex) per pid — ta sama miara co
+   Menedżer zadań; procesy karty z `TracingStartedInBrowser.args.data.frames`
+   (`processId`, ramka bez `parent` = proces strony). Wynik młodszy niż 20 s
+   jest zwracany z pamięci SW (`maxAgeMs`), równoległe prośby czekają na jeden
+   pomiar. Przeglądarka pokazuje pasek „debuguje" przez kilka sekund.
 
 Popup pyta monitor przez `chrome.tabs.sendMessage`; monitor prosi wtedy
 content.js (postMessage `stats-req` → `stats`) o statystyki warstwy ciężkiej
@@ -95,8 +102,10 @@ content.js (postMessage `stats-req` → `stats`) o statystyki warstwy ciężkiej
 
 **Raport (v6.6)** — popup: „Kopiuj raport" / „Pobierz .json". JSON
 `report: 'adblock-spoof-memory'` z polami: `version`, `created`, `userAgent`,
-`page` (bez query/hasha), `extensionActiveHere`, `taskManagerMB` (wpisane
-ręcznie z Shift+Esc), `evaluation`, `precise`, `sample` (z `heavy`), `first`,
+`page` (bez query/hasha), `extensionActiveHere`, `taskManagerMB` (ręcznie z
+Shift+Esc, pole widoczne tylko gdy pomiar RAM zawiedzie), `evaluation`,
+`precise` (z `tabMB`, `mainMB`, `subframesMB`, `browserMB`), `sample` (z
+`heavy`), `first`,
 `history` (do 120 odczytów co 30 s), `limits`. Użytkownik wkleja go w
 rozmowie — tak analizujemy przypadki „dużo RAM-u".
 

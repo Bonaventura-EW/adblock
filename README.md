@@ -77,30 +77,29 @@ rozszerzenia widać w nagłówku popupu i w podpowiedzi ikony.
 
 ## Pamięć tej karty
 
-Rozszerzenie co 30 s sprawdza tanie wskaźniki zużycia pamięci na bieżącej
+Po otwarciu popupu widać **RAM tej karty** w MB — proces strony plus procesy
+jej ramek (np. reklam), czyli to samo, co Menedżer zadań Vivaldi (Shift+Esc).
+Pomiar idzie przez protokół DevTools, więc na kilka sekund pojawia się pasek
+„rozszerzenie debuguje tę przeglądarkę". Ponowne otwarcie popupu w ciągu 20 s
+pokazuje poprzedni wynik bez nowego pomiaru; **Zmierz ponownie** mierzy od nowa.
+
+Dodatkowo rozszerzenie co 30 s sprawdza tanie wskaźniki zużycia pamięci na bieżącej
 karcie (rozmiar DOM, liczba ramek, obrazki, wideo, wzrost w czasie). Gdy są
 wysokie, na ikonie pojawia się znaczek **RAM** (żółty — dużo, czerwony — bardzo
 dużo). W popupie, w sekcji **Pamięć tej karty**, widać powody oraz to, ile pracy
 wykonało na tej stronie samo rozszerzenie.
 
-Przycisk **Zmierz dokładnie** odczytuje stertę JS i pamięć obiektów DOM przez
-protokół DevTools — na chwilę pojawi się pasek „rozszerzenie debuguje tę
-przeglądarkę". Działa też na stronach, gdzie rozszerzenie jest wyłączone, więc
-można porównać kartę z rozszerzeniem i bez.
-
-Pełnego RAM-u karty rozszerzenie nie zna (przeglądarka tego nie udostępnia) —
-ten pokazuje Menedżer zadań Vivaldi (**Shift+Esc**).
+Pomiar pokazuje też stertę JS i pamięć obiektów DOM. Działa również na
+stronach, gdzie rozszerzenie jest wyłączone, więc można porównać kartę z
+rozszerzeniem i bez.
 
 ### Raport do analizy
 
 1. Zostaw kartę otwartą tak długo, jak zwykle (monitor zbiera historię z
    ostatniej godziny).
-2. Opcjonalnie: otwórz Menedżer zadań Vivaldi (**Shift+Esc**), odczytaj pamięć
-   tej karty i wpisz ją w popupie w polu „RAM karty z Menedżera zadań".
-3. Kliknij **Kopiuj raport** (i wklej go w rozmowie) albo **Pobierz .json**
-   (i dołącz plik). Raport sam wykona dokładny pomiar, jeśli jeszcze go nie
-   było.
-4. Dla porównania: wyłącz rozszerzenie na tej domenie, odśwież stronę, odczekaj
+2. Kliknij **Kopiuj raport** (i wklej go w rozmowie) albo **Pobierz .json**
+   (i dołącz plik). Raport zawiera RAM karty i dokładny pomiar.
+3. Dla porównania: wyłącz rozszerzenie na tej domenie, odśwież stronę, odczekaj
    podobny czas i zrób drugi raport.
 
 Raport zawiera adres strony bez parametrów (`?…`) i nazwy hostów, z których

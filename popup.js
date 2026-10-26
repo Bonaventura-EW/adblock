@@ -20,6 +20,9 @@
     memInfo: document.getElementById('memInfo'),
     memPrecise: document.getElementById('memPrecise'),
     measure: document.getElementById('measure'),
+    ramMB: document.getElementById('ramMB'),
+    ramDetail: document.getElementById('ramDetail'),
+    tmBox: document.getElementById('tmBox'),
     tmMB: document.getElementById('tmMB'),
     copyReport: document.getElementById('copyReport'),
     saveReport: document.getElementById('saveReport'),
@@ -97,6 +100,7 @@
 
     memTabId = tab.id;
     await loadMemory();
+    await runMeasure(false);
   }
 
   // ── Pamięć tej karty ──────────────────────────────────────────────────────
@@ -165,15 +169,46 @@
     } else if (precise) {
       addLine(els.memPrecise, `Sterta JS: ${precise.jsHeapMB} MB · obiekty DOM: ${precise.domHeapMB} MB · bufory: ${precise.buffersMB} MB`);
       addLine(els.memPrecise, `Węzły: ${precise.nodes} · dokumenty: ${precise.documents} · ramki: ${precise.frames} · nasłuchiwacze: ${precise.listeners}`);
-      addLine(els.memPrecise, 'Dotyczy procesu strony głównej — ramki z innych domen, GPU i dekodowane obrazki są liczone osobno.');
+      addLine(els.memPrecise, 'Sterta i węzły dotyczą procesu strony głównej.');
     }
+    renderRam(precise, ev.level);
   }
 
-  async function runMeasure() {
+  // Duża liczba „RAM tej karty" — ze zrzutu pamięci (background.js).
+  function renderRam(precise, level) {
+    els.ramDetail.textContent = '';
+    const ok = precise && !precise.error && precise.tabMB != null;
+    els.tmBox.hidden = !precise || ok; // pole ręczne tylko, gdy pomiar zawiódł
+    if (!precise) {
+      els.ramMB.textContent = '…';
+      els.ramMB.className = 'ram-mb';
+      addLine(els.ramDetail, 'Mierzę…');
+      return;
+    }
+    if (!ok) {
+      els.ramMB.textContent = '—';
+      els.ramMB.className = 'ram-mb';
+      addLine(els.ramDetail, precise.error || precise.ramError, 'r2');
+      return;
+    }
+    els.ramMB.textContent = `${precise.tabMB} MB`;
+    els.ramMB.className = 'ram-mb' + (level > 0 ? ' l' + level : '');
+    const age = Math.round((Date.now() - precise.t) / 1000);
+    addLine(els.ramDetail, `Proces strony: ${precise.mainMB} MB` +
+      (precise.subframeProcs ? ` + ramki w osobnych procesach: ${precise.subframesMB} MB (${precise.subframeProcs})` : ''));
+    addLine(els.ramDetail, `Cała przeglądarka: ${precise.browserMB} MB (${precise.browserProcs} procesów)` +
+      (age >= 3 ? ` · pomiar sprzed ${age} s` : ''));
+  }
+
+  // force=false: wynik młodszy niż 20 s bierzemy z pamięci service workera
+  // (ponowne otwarcie popupu nie podłącza debuggera od nowa).
+  async function runMeasure(force) {
     els.measure.disabled = true;
     els.measure.textContent = 'Mierzę…';
     try {
-      lastPrecise = await chrome.runtime.sendMessage({ type: 'adblock-spoof-measure', tabId: memTabId });
+      lastPrecise = await chrome.runtime.sendMessage({
+        type: 'adblock-spoof-measure', tabId: memTabId, maxAgeMs: force ? 0 : 20000
+      });
     } catch (e) {
       lastPrecise = { error: 'Pomiar nieudany: ' + e.message };
     }
@@ -184,11 +219,11 @@
     els.measure.textContent = 'Zmierz ponownie';
   }
 
-  els.measure.addEventListener('click', runMeasure);
+  els.measure.addEventListener('click', () => runMeasure(true));
 
   // ── Raport do analizy (schowek / plik .json) ──────────────────────────────
   async function buildReport() {
-    if (!lastPrecise) await runMeasure();
+    if (!lastPrecise) await runMeasure(false);
     else { await fetchSample(); renderMemory(lastPrecise); }
     const tm = parseInt(els.tmMB.value, 10);
     return {

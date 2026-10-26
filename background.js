@@ -136,8 +136,64 @@ function setMemBadge(tabId, level) {
   }
 }
 
-// Dokładny pomiar przez protokół DevTools. Na czas pomiaru przeglądarka
-// pokazuje pasek „rozszerzenie debuguje tę przeglądarkę".
+const mb = (b) => Math.round((b || 0) / 1048576);
+
+// RAM procesów z globalnego zrzutu pamięci (memory-infra) — ta sama miara
+// „private footprint", którą pokazuje Menedżer zadań. Procesy tej karty
+// wskazuje zdarzenie TracingStartedInBrowser (ramki → processId).
+async function memoryDump(target) {
+  const events = [];
+  let complete;
+  const completed = new Promise((r) => { complete = r; });
+  const onEvent = (source, method, params) => {
+    if (source.tabId !== target.tabId) return;
+    if (method === 'Tracing.dataCollected') events.push(...params.value);
+    else if (method === 'Tracing.tracingComplete') complete();
+  };
+  chrome.debugger.onEvent.addListener(onEvent);
+  try {
+    await chrome.debugger.sendCommand(target, 'Tracing.start', {
+      traceConfig: {
+        includedCategories: ['disabled-by-default-memory-infra', 'disabled-by-default-devtools.timeline'],
+        excludedCategories: ['*'],
+        memoryDumpConfig: { triggers: [] }
+      },
+      transferMode: 'ReportEvents'
+    });
+    await chrome.debugger.sendCommand(target, 'Tracing.requestMemoryDump',
+      { deterministic: false, levelOfDetail: 'background' });
+    await chrome.debugger.sendCommand(target, 'Tracing.end');
+    await Promise.race([completed, new Promise((r) => setTimeout(r, 5000))]);
+  } finally {
+    chrome.debugger.onEvent.removeListener(onEvent);
+  }
+
+  const footprint = {};
+  events.forEach((e) => {
+    const totals = e.ph === 'v' && e.args && e.args.dumps && e.args.dumps.process_totals;
+    if (totals) footprint[e.pid] = parseInt(totals.private_footprint_bytes || totals.resident_set_bytes || '0', 16);
+  });
+  const started = events.find((e) => e.name === 'TracingStartedInBrowser');
+  const frames = (started && started.args.data.frames) || [];
+  const main = frames.find((f) => !f.parent);
+  if (!main || !(main.processId in footprint)) throw new Error('brak procesu karty w zrzucie pamięci');
+
+  const subPids = [...new Set(frames.map((f) => f.processId))]
+    .filter((pid) => pid !== main.processId && pid in footprint);
+  const subBytes = subPids.reduce((sum, pid) => sum + footprint[pid], 0);
+  const allBytes = Object.values(footprint).reduce((sum, b) => sum + b, 0);
+  return {
+    tabMB: mb(footprint[main.processId] + subBytes),
+    mainMB: mb(footprint[main.processId]),
+    subframesMB: mb(subBytes),
+    subframeProcs: subPids.length,
+    browserMB: mb(allBytes),
+    browserProcs: Object.keys(footprint).length
+  };
+}
+
+// Dokładny pomiar przez protokół DevTools. Na czas pomiaru (i kilka sekund
+// po nim) przeglądarka pokazuje pasek „rozszerzenie debuguje tę przeglądarkę".
 async function measureTab(tabId) {
   const target = { tabId };
   try {
@@ -151,8 +207,9 @@ async function measureTab(tabId) {
     const heap = await chrome.debugger.sendCommand(target, 'Runtime.getHeapUsage');
     const m = {};
     metrics.forEach((x) => { m[x.name] = x.value; });
-    const mb = (b) => Math.round((b || 0) / 1048576);
-    return {
+    const result = {
+      t: Date.now(),
+      tabMB: null,
       jsHeapMB: mb(heap.usedSize),
       domHeapMB: mb(heap.embedderHeapUsedSize),
       buffersMB: mb(heap.backingStorageSize),
@@ -161,11 +218,36 @@ async function measureTab(tabId) {
       frames: m.Frames,
       listeners: m.JSEventListeners
     };
+    try {
+      Object.assign(result, await memoryDump(target));
+    } catch (e) {
+      result.ramError = 'RAM karty niedostępny: ' + e.message;
+    }
+    return result;
   } catch (e) {
     return { error: 'Pomiar nieudany: ' + e.message };
   } finally {
     await chrome.debugger.detach(target).catch(() => {});
   }
+}
+
+// Popup mierzy kartę przy każdym otwarciu. Świeży wynik (maxAgeMs) jest
+// zwracany z pamięci, a równoległe prośby o tę samą kartę czekają na jeden
+// pomiar — debugger da się podłączyć do karty tylko raz.
+const lastMeasure = new Map();
+const pendingMeasure = new Map();
+
+function measureTabCached(tabId, maxAgeMs) {
+  const last = lastMeasure.get(tabId);
+  if (last && maxAgeMs && Date.now() - last.t < maxAgeMs) return Promise.resolve(last);
+  if (pendingMeasure.has(tabId)) return pendingMeasure.get(tabId);
+  const p = measureTab(tabId).then((res) => {
+    pendingMeasure.delete(tabId);
+    if (!res.error) lastMeasure.set(tabId, res);
+    return res;
+  });
+  pendingMeasure.set(tabId, p);
+  return p;
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -179,7 +261,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   } else if (msg.type === 'adblock-spoof-mem-level' && sender.tab) {
     setMemBadge(sender.tab.id, msg.level);
   } else if (msg.type === 'adblock-spoof-measure') {
-    measureTab(msg.tabId).then(sendResponse);
+    measureTabCached(msg.tabId, msg.maxAgeMs).then(sendResponse);
     return true;
   }
   return false;

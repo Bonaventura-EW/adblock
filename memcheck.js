@@ -1,11 +1,11 @@
 // Universal Adblock Spoof — ocena zużycia pamięci karty
 // ════════════════════════════════════════════════════════════════════════════
-// Wspólne dla monitor.js (ISOLATED world) i popup.js. Rozszerzenie nie ma
-// dostępu do prawdziwego RAM-u karty (chrome.processes działa tylko w kanale
-// Dev, a performance.memory jest zaokrąglane i odświeżane rzadko), więc ocena
-// opiera się na wskaźnikach, które da się zmierzyć: rozmiar DOM, ramki,
-// obrazki, wideo, wzrost w czasie oraz — po pomiarze przez debugger — sterty
-// JS i DOM strony głównej.
+// Wspólne dla monitor.js (ISOLATED world) i popup.js. Monitor nie widzi
+// prawdziwego RAM-u (chrome.processes działa tylko w kanale Dev, a
+// performance.memory jest zaokrąglane i odświeżane rzadko), więc ocenia tanie
+// wskaźniki: rozmiar DOM, ramki, obrazki, wideo, wzrost w czasie. Pomiar przez
+// debugger (popup) dokłada RAM karty ze zrzutu pamięci przeglądarki oraz
+// sterty JS i DOM strony głównej.
 // ════════════════════════════════════════════════════════════════════════════
 
 var AdblockSpoofMem = (function () {
@@ -14,6 +14,7 @@ var AdblockSpoofMem = (function () {
   // [poziom 1 „dużo", poziom 2 „bardzo dużo"]. Typowa strona WP z uBlockiem:
   // 1–8 tys. elementów, kilka–20 ramek, sterta JS 15–40 MB.
   var LIMITS = {
+    tabMB: [500, 1000],
     elements: [15000, 40000],
     iframes: [25, 60],
     imagesMB: [150, 400],
@@ -62,6 +63,8 @@ var AdblockSpoofMem = (function () {
     }
 
     if (precise && !precise.error) {
+      add(levelOf('tabMB', precise.tabMB), 'Karta zużywa ' + precise.tabMB + ' MB RAM (proces strony ' +
+        precise.mainMB + ' MB + ramki w osobnych procesach ' + precise.subframesMB + ' MB).');
       add(levelOf('jsHeapMB', precise.jsHeapMB), 'Sterta JS strony: ' + precise.jsHeapMB + ' MB.');
       add(levelOf('domHeapMB', precise.domHeapMB), 'Obiekty DOM (Blink): ' + precise.domHeapMB + ' MB.');
       add(levelOf('listeners', precise.listeners), 'Nasłuchiwacze zdarzeń JS: ' + precise.listeners + '.');
