@@ -159,6 +159,19 @@ strony zablokowany — wtedy nie odpowiada też monitor ani zrzut pamięci).
 Stan karty dostaje `busy: true` → ikona czerwona ze znakiem „!", popup:
 poziom „nie odpowiada".
 
+**Diagnoza (v6.19)** — popup „Diagnozuj (30 s)" → `diagnose(url)` w
+`background.js`: nowa karta `about:blank`, `chrome.debugger.attach`,
+`Debugger.enable` + `setBreakpointsActive(false)` (obce pauzy wznawiamy),
+`Tracing.start` z `disabled-by-default-v8.cpu_profiler` (domena `Profiler`
+jest NIEDOSTĘPNA dla rozszerzeń), potem nawigacja do adresu. Co 2 s
+`Runtime.evaluate('1')` z limitem 1,5 s; brak odpowiedzi → `Debugger.pause` →
+stos (`scriptParsed` mapuje `scriptId` → URL dla skryptów inline). Profil:
+`ProfileChunk` → czas własny per plik/funkcja, tylko procesy wykonujące kod
+serwisu albo tego rozszerzenia (`summarizeCpu`). Wynik w `storage.session`
+`diagLast` (popup zamyka się przy otwarciu nowej karty) i w raporcie
+(`diagnosis`). Na karcie, która już wisi, `Debugger.enable` nie odpowiada —
+stąd nowa karta.
+
 **Odporność (v6.16) — NIE COFAĆ:** monitor rejestrowany OSOBNO od
 content.js/bridge.js (`registerContentScripts` jest atomowe — brak
 `monitor.js` blokował cały spoof); `importScripts('memcheck.js')` w `try`
@@ -175,7 +188,7 @@ warstwy ciężkiej (przebiegi, ms CPU) — ten postMessage leci tylko na żądan
 (bez query/hasha), `extensionActiveHere`, `taskManagerMB` (ręcznie, pole
 widoczne tylko gdy pomiar RAM zawiedzie), `evaluation`, `precise` (z `tabMB`,
 `mainMB`, `subframesMB`, `browserMB`), `sample` (z `heavy`), `first`,
-`history`, `limits`. Użytkownik wkleja go w rozmowie — tak analizujemy
+`history`, `limits`, `missingFiles`, `diagnosis` (wynik „Diagnozuj"). Użytkownik wkleja go w rozmowie — tak analizujemy
 przypadki „dużo RAM-u".
 
 ## Kluczowe mechanizmy w content.js

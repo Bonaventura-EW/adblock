@@ -393,6 +393,7 @@ const lastMeasure = new Map();
 const pendingMeasure = new Map();
 
 function measureTabCached(tabId, maxAgeMs) {
+  if (diagnosing.has(tabId)) return Promise.resolve({ error: 'Trwa diagnoza tej karty — pomiar po jej zakończeniu.' });
   const last = lastMeasure.get(tabId);
   if (last && maxAgeMs && Date.now() - last.t < maxAgeMs) return Promise.resolve(last);
   if (pendingMeasure.has(tabId)) return pendingMeasure.get(tabId);
@@ -413,7 +414,7 @@ function measureTabCached(tabId, maxAgeMs) {
 let lastAutoMeasure = 0;
 
 async function autoMeasure(tab) {
-  if (!tab || !tab.active || !/^https?:/.test(tab.url || '')) return;
+  if (!tab || !tab.active || !/^https?:/.test(tab.url || '') || diagnosing.has(tab.id)) return;
   const { autoRam } = await chrome.storage.local.get('autoRam');
   if (autoRam === false) return;
   const st = await getTabState(tab.id);
@@ -436,6 +437,181 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
   }, 3000);
 });
 
+// ── Diagnoza: co obciąża / zawiesza stronę (v6.19) ─────────────────────────
+// Na karcie, która JUŻ wisi, debuggera nie da się włączyć (Debugger.enable
+// czeka na wątek strony). Dlatego diagnoza otwiera adres w NOWEJ karcie:
+// podłącza debugger do pustej karty, włącza Debugger i ślad CPU (Tracing,
+// kategoria v8.cpu_profiler — domena Profiler nie jest dostępna dla
+// rozszerzeń), dopiero potem ładuje stronę i obserwuje ją do DIAG_SECONDS.
+// Jeśli strona przestanie odpowiadać — „pauza" jak w DevTools i stos wywołań.
+// Wynik (storage.session 'diagLast') trafia do popupu i do raportu.
+const DIAG_SECONDS = 30;
+const diagnosing = new Set();
+
+// Popularne blokery — żeby w wyniku była nazwa zamiast samego ID.
+const KNOWN_EXTENSIONS = {
+  cjpalhdlnbpafiamejdnhcphjbkeiagm: 'uBlock Origin',
+  ddkjiahejlhfcafbddmgiahcphecmpfh: 'uBlock Origin Lite',
+  gighmmpiobklfepjocnamgkkbiglidom: 'AdBlock',
+  cfhdojbkjhnklbpkdaibdccddilifddb: 'Adblock Plus',
+  bgnkhhnnamicmpeenaelnjfhikgbkllg: 'AdGuard',
+  mlomiejdfkolichcflejclcbmpeaniij: 'Ghostery'
+};
+
+// Czytelne źródło kodu: to rozszerzenie / inne rozszerzenie / host strony.
+function describeSource(url, fn) {
+  if (!url) return fn && /^\(.*\)$/.test(fn) ? fn : '(kod bez pliku)';
+  const ext = /^chrome-extension:\/\/([a-p]{32})\/(.*)$/.exec(url);
+  if (ext) {
+    if (ext[1] === chrome.runtime.id) return 'TO ROZSZERZENIE (Universal Adblock Spoof): ' + ext[2];
+    return 'rozszerzenie ' + (KNOWN_EXTENSIONS[ext[1]] || ext[1]) + ': ' + ext[2];
+  }
+  try {
+    const u = new URL(url);
+    // WP serwuje skrypty pod długimi, losowymi nazwami — skracamy plik do 40 znaków.
+    const file = u.pathname.replace(/^.*\//, '');
+    return u.host + '/…/' + (file.length > 40 ? file.slice(0, 40) + '…' : file);
+  } catch (e) { return url.slice(0, 120); }
+}
+
+function siteOf(host) {
+  return host.split('.').slice(-2).join('.');
+}
+
+async function diagnose(url) {
+  const startedAt = Date.now();
+  const result = { url: url.split(/[?#]/)[0], startedAt: new Date(startedAt).toISOString(), seconds: DIAG_SECONDS };
+  await chrome.storage.session.set({ diagLast: { state: 'running', url: result.url, startedAt } });
+  const tab = await chrome.tabs.create({ url: 'about:blank', active: true });
+  const target = { tabId: tab.id };
+  diagnosing.add(tab.id);
+
+  const events = [];
+  const scripts = {}; // scriptId → url (stos z pauzy podaje tylko scriptId dla skryptów inline)
+  let traceDone, pausedResolve = null;
+  const traceComplete = new Promise((r) => { traceDone = r; });
+  const listener = (source, method, params) => {
+    if (source.tabId !== tab.id) return;
+    if (method === 'Tracing.dataCollected') events.push(...params.value);
+    else if (method === 'Tracing.tracingComplete') traceDone();
+    else if (method === 'Debugger.scriptParsed') scripts[params.scriptId] = params.url;
+    else if (method === 'Debugger.paused') {
+      // Nasza pauza → odbierz stos; każda inna (np. „debugger;" na stronie) → wznów.
+      if (pausedResolve) { pausedResolve(params); pausedResolve = null; }
+      else chrome.debugger.sendCommand(target, 'Debugger.resume').catch(() => {});
+    }
+  };
+  chrome.debugger.onEvent.addListener(listener);
+  const send = (method, params, ms) => rejectAfter(chrome.debugger.sendCommand(target, method, params), ms || 3000);
+
+  try {
+    await rejectAfter(chrome.debugger.attach(target, '1.3'), 5000);
+    await send('Debugger.enable');
+    await send('Debugger.setBreakpointsActive', { active: false });
+    await send('Tracing.start', {
+      traceConfig: { includedCategories: ['disabled-by-default-v8.cpu_profiler'], excludedCategories: ['*'] },
+      transferMode: 'ReportEvents'
+    });
+    await chrome.tabs.update(tab.id, { url });
+
+    for (let i = 0; i < DIAG_SECONDS / 2; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        await send('Runtime.evaluate', { expression: '1' }, 1500);
+      } catch (e) {
+        result.hung = true;
+        result.hungAfterS = Math.round((Date.now() - startedAt) / 1000);
+        break;
+      }
+    }
+    result.observedS = Math.round((Date.now() - startedAt) / 1000);
+
+    if (result.hung) {
+      const paused = new Promise((r) => { pausedResolve = r; });
+      await send('Debugger.pause', undefined, 2000).catch(() => {});
+      const ev = await Promise.race([paused, new Promise((r) => setTimeout(() => r(null), 4000))]);
+      pausedResolve = null;
+      if (ev) {
+        result.stack = ev.callFrames.slice(0, 10).map((f) => ({
+          fn: f.functionName || '(anonimowa)',
+          src: describeSource(f.url || scripts[f.location.scriptId], f.functionName),
+          line: f.location.lineNumber + 1
+        }));
+        await send('Debugger.resume').catch(() => {});
+      }
+    }
+
+    await send('Tracing.end', undefined, 5000).catch(() => {});
+    await Promise.race([traceComplete, new Promise((r) => setTimeout(r, 8000))]);
+    result.cpu = summarizeCpu(events, new URL(url).hostname);
+
+    if (!result.hung) {
+      try {
+        Object.assign(result, { ram: await memoryDump(target) });
+      } catch (e) { /* RAM opcjonalny */ }
+    }
+  } catch (e) {
+    result.error = 'Diagnoza przerwana: ' + e.message;
+  } finally {
+    chrome.debugger.onEvent.removeListener(listener);
+    await chrome.debugger.detach(target).catch(() => {});
+    diagnosing.delete(tab.id);
+  }
+  result.tabId = tab.id;
+  await chrome.storage.session.set({ diagLast: { state: 'done', url: result.url, startedAt, result } });
+  return result;
+}
+
+// Profil CPU ze zdarzeń ProfileChunk: czas własny funkcji, zsumowany per
+// źródło (plik). Liczymy tylko procesy, które wykonywały kod strony (ten sam
+// serwis) albo tego rozszerzenia — ślad obejmuje też inne procesy.
+function summarizeCpu(events, host) {
+  const site = siteOf(host);
+  const frames = {}; // pid:profileId:nodeId → callFrame
+  const self = {};   // pid:profileId:nodeId → µs
+  events.forEach((e) => {
+    if (e.name !== 'ProfileChunk' || !e.args || !e.args.data) return;
+    const d = e.args.data;
+    const key = e.pid + ':' + e.id + ':';
+    ((d.cpuProfile && d.cpuProfile.nodes) || []).forEach((n) => { frames[key + n.id] = n.callFrame; });
+    ((d.cpuProfile && d.cpuProfile.samples) || []).forEach((sid, i) => {
+      self[key + sid] = (self[key + sid] || 0) + ((d.timeDeltas && d.timeDeltas[i]) || 0);
+    });
+  });
+  const pageProfiles = new Set();
+  Object.keys(frames).forEach((k) => {
+    const url = frames[k].url || '';
+    let match = url.startsWith('chrome-extension://' + chrome.runtime.id);
+    try { match = match || siteOf(new URL(url).hostname) === site; } catch (e) {}
+    if (match) pageProfiles.add(k.split(':').slice(0, 2).join(':'));
+  });
+  const bySource = {}, byFn = {};
+  let totalUs = 0, idleUs = 0;
+  Object.keys(self).forEach((k) => {
+    if (!pageProfiles.has(k.split(':').slice(0, 2).join(':'))) return;
+    const cf = frames[k];
+    if (!cf) return;
+    const us = self[k];
+    totalUs += us;
+    if (cf.functionName === '(idle)') { idleUs += us; return; }
+    const src = describeSource(cf.url, cf.functionName);
+    bySource[src] = (bySource[src] || 0) + us;
+    const fk = (cf.functionName || '(anonimowa)') + ' — ' + src;
+    byFn[fk] = (byFn[fk] || 0) + us;
+  });
+  const top = (o, n) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n)
+    .map(([k, us]) => ({ name: k, ms: Math.round(us / 1000) }));
+  const own = Object.entries(bySource).filter(([k]) => k.startsWith('TO ROZSZERZENIE'))
+    .reduce((s, [, us]) => s + us, 0);
+  return {
+    sampledMs: Math.round(totalUs / 1000),
+    busyMs: Math.round((totalUs - idleUs) / 1000),
+    thisExtensionMs: Math.round(own / 1000),
+    topSources: top(bySource, 8),
+    topFunctions: top(byFn, 10)
+  };
+}
+
 // Licznik usuniętych ścian — wiadomości przychodzą z bridge.js.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === 'adblock-spoof-removed') {
@@ -457,6 +633,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Poziom z monitor.js → ikona i znaczek tej karty.
   if (msg && msg.type === 'adblock-spoof-mem-level' && sender.tab) {
     updateTabState(sender.tab.id, { monitorLevel: msg.level });
+    return false;
+  }
+  // Diagnoza w nowej karcie — popup się wtedy zamknie, wynik czeka w diagLast.
+  if (msg && msg.type === 'adblock-spoof-diagnose' && /^https?:/.test(msg.url || '')) {
+    diagnose(msg.url);
+    sendResponse({ started: true });
     return false;
   }
   // Pomiar RAM karty dla popupu (maxAgeMs — wynik z pamięci, jeśli świeży).

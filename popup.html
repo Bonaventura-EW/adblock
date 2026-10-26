@@ -95,6 +95,8 @@
     .mem-actions button { flex: none; white-space: nowrap; }
     .mem-note { color: #8a9096; font-size: 10px; line-height: 1.4; }
     .auto-ram { margin-top: 10px; border-top: 1px solid #2c2c32; font-size: 12px; }
+    .diag { margin-top: 10px; padding-top: 10px; border-top: 1px solid #2c2c32; }
+    .diag .mem-actions { margin-top: 0; }
     .mem-report { margin-top: 12px; padding-top: 10px; border-top: 1px solid #2c2c32; font-size: 12px; }
     .mem-report .tm { margin-top: 4px; color: #9aa0a6; }
     .mem-report .tm small { font-size: 10px; }
@@ -104,6 +106,8 @@
     }
     .mem-report .mem-note { margin-top: 6px; }
     .mem-note.ok { color: #5cd47a; }
+    .mem-info .r2 { color: #f08585; }
+    .mem-info .ok { color: #5cd47a; }
   </style>
 </head>
 <body>
@@ -167,6 +171,13 @@
         <input type="checkbox" id="autoRam" checked>
         <label class="slider" for="autoRam"></label>
       </span>
+    </div>
+    <div class="diag">
+      <div class="mem-actions">
+        <button class="reset" id="diagnose">Diagnozuj (30 s)</button>
+        <span class="mem-note">Otworzy ten adres w nowej karcie i sprawdzi, który kod obciąża albo zawiesza stronę.</span>
+      </div>
+      <div class="mem-info" id="diagInfo"></div>
     </div>
     <div class="mem-report">
       <div id="tmBox" hidden>

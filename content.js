@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.18
+// Universal Adblock Spoof v6.19
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -15,8 +15,8 @@
   'use strict';
 
   // Znacznik wersji — do potwierdzenia w konsoli, że ten kod jest aktywny:
-  //   window.__adblockSpoof   →   "6.18"
-  try { window.__adblockSpoof = '6.18'; } catch (e) {}
+  //   window.__adblockSpoof   →   "6.19"
+  try { window.__adblockSpoof = '6.19'; } catch (e) {}
 
   // Czy wykryto ścianę adblock. Dopóki false — warstwa ciężka śpi.
   var wallDetected = false;

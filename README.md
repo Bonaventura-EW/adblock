@@ -105,6 +105,15 @@ od 5 minut. Auto-pomiar wyłączysz przełącznikiem w popupie. Pasek „debuguj
 można całkiem ukryć, uruchamiając Vivaldi z flagą
 `--silent-debugger-extension-api` (dopisz ją do skrótu na pulpicie).
 
+### Diagnoza: co zawiesza albo obciąża stronę
+
+Jeśli karta „nie odpowiada" (czerwone „!") albo mieli procesor, kliknij w
+popupie **Diagnozuj (30 s)**. Rozszerzenie otworzy ten sam adres w nowej
+karcie, przez 30 s nagra, który kod zużywa CPU, a gdy strona się zawiesi —
+zatrzyma ją jak pauza w DevTools i odczyta, która funkcja ją blokuje. Wynik
+podpisuje źródło: to rozszerzenie, inne rozszerzenie albo skrypt strony. Potem
+otwórz popup ponownie i kliknij **Kopiuj raport** — diagnoza jest w raporcie.
+
 ### Raport do analizy
 
 1. Zostaw kartę otwartą tak długo, jak zwykle (monitor zbiera historię z

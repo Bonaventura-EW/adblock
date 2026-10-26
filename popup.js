@@ -27,7 +27,9 @@
     tmMB: document.getElementById('tmMB'),
     copyReport: document.getElementById('copyReport'),
     saveReport: document.getElementById('saveReport'),
-    reportNote: document.getElementById('reportNote')
+    reportNote: document.getElementById('reportNote'),
+    diagnose: document.getElementById('diagnose'),
+    diagInfo: document.getElementById('diagInfo')
   };
 
   // Numer wersji z manifestu — zawsze zgodny z zainstalowanym buildem.
@@ -106,6 +108,8 @@
     els.autoRam.checked = store.autoRam !== false;
 
     memTabId = tab.id;
+    currentFullUrl = url;
+    await loadDiagnosis();
     missing = await missingFiles();
     if (missing.length) { showBrokenInstall(); return; }
     await loadMemory();
@@ -124,6 +128,8 @@
   let measuring = null;
   let missing = [];
   let sampleError = null;
+  let currentFullUrl = null;
+  let diagLast = null;
 
   // Pliki dodane w v6.15. Przy aktualizacji „nadpisz istniejące pliki" łatwo
   // ich nie skopiować — wtedy sekcja pamięci nie działała, a przyciski wisiały
@@ -306,10 +312,60 @@
     chrome.storage.local.set({ autoRam: els.autoRam.checked });
   });
 
+  // ── Diagnoza: co obciąża / zawiesza stronę (background.js → diagLast) ─────
+  async function loadDiagnosis() {
+    try {
+      diagLast = (await chrome.storage.session.get('diagLast')).diagLast || null;
+    } catch (e) { diagLast = null; }
+    renderDiagnosis();
+  }
+
+  function renderDiagnosis() {
+    els.diagInfo.textContent = '';
+    const d = diagLast;
+    if (!d) return;
+    if (d.state === 'running') {
+      const s = Math.round((Date.now() - d.startedAt) / 1000);
+      addLine(els.diagInfo, `Diagnoza trwa (${s} s)… Otwórz popup ponownie za chwilę.`);
+      els.diagnose.disabled = true;
+      return;
+    }
+    const r = d.result || {};
+    addLine(els.diagInfo, `Ostatnia diagnoza: ${r.url || d.url}`);
+    if (r.error) addLine(els.diagInfo, r.error, 'r2');
+    if (r.hung) {
+      addLine(els.diagInfo, `Strona ZAWIESIŁA SIĘ po ${r.hungAfterS} s.`, 'r2');
+      (r.stack || []).slice(0, 3).forEach((f, i) => {
+        addLine(els.diagInfo, `${i ? '  wywołane z' : 'Blokuje'}: ${f.fn} — ${f.src}:${f.line}`, i ? '' : 'r2');
+      });
+    } else if (!r.error) {
+      addLine(els.diagInfo, `Strona nie zawiesiła się przez ${r.observedS} s.`);
+    }
+    if (r.cpu) {
+      addLine(els.diagInfo, `CPU strony: ${r.cpu.busyMs} ms pracy w ${r.cpu.sampledMs} ms · to rozszerzenie: ${r.cpu.thisExtensionMs} ms`);
+      r.cpu.topSources.slice(0, 3).forEach((t) => addLine(els.diagInfo, `• ${t.name} — ${t.ms} ms`));
+    }
+    if (r.ram && r.ram.tabMB != null) addLine(els.diagInfo, `RAM karty po diagnozie: ${r.ram.tabMB} MB`);
+    addLine(els.diagInfo, 'Kliknij „Kopiuj raport" i wklej go w czacie.', 'ok');
+  }
+
+  els.diagnose.addEventListener('click', async () => {
+    els.diagnose.disabled = true;
+    try {
+      await withTimeout(chrome.runtime.sendMessage({ type: 'adblock-spoof-diagnose', url: currentFullUrl }),
+        5000, 'Service worker rozszerzenia');
+      addLine(els.diagInfo, 'Diagnoza ruszyła w nowej karcie (30 s). Potem otwórz popup i skopiuj raport.');
+    } catch (e) {
+      addLine(els.diagInfo, 'Nie udało się uruchomić diagnozy: ' + e.message, 'r2');
+      els.diagnose.disabled = false;
+    }
+  });
+
   // ── Raport do analizy (schowek / plik .json) ──────────────────────────────
   // Bez długiego czekania: raport bierze to, co już jest (trwający pomiar
   // dostaje najwyżej 2,5 s), żeby kliknięcie od razu kopiowało.
   async function buildReport() {
+    await loadDiagnosis();
     if (measuring) await Promise.race([measuring, new Promise((r) => setTimeout(r, 2500))]).catch(() => {});
     if (!missing.length) await fetchSample(1500);
     const mem = typeof AdblockSpoofMem !== 'undefined' ? AdblockSpoofMem : null;
@@ -323,6 +379,7 @@
       extensionActiveHere: els.domainToggle.checked && els.urlToggle.checked,
       taskManagerMB: Number.isFinite(tm) ? tm : null,
       missingFiles: missing,
+      diagnosis: diagLast && diagLast.result ? diagLast.result : null,
       evaluation: mem ? mem.evaluate(memSample, memFirst, lastPrecise) : null,
       precise: lastPrecise,
       sample: memSample,

@@ -1,5 +1,30 @@
 # Changelog
 
+## v6.19 (2026-10-26)
+
+### Nowe
+- **„Diagnozuj (30 s)" w popupie — co obciąża albo zawiesza stronę.** Po v6.18
+  karta wiadomosci.wp.pl u użytkownika nadal się zawieszała, a w testach
+  (uBlock Origin Lite, AdBlock 6.50) zawieszenia nie dało się odtworzyć —
+  potrzebny był pomiar u użytkownika. Na karcie, która JUŻ wisi, debuggera nie
+  da się włączyć (`Debugger.enable` czeka na wątek strony), więc diagnoza:
+  - otwiera ten adres w NOWEJ karcie: debugger + ślad CPU włączone na pustej
+    karcie, dopiero potem ładowanie strony;
+  - profil CPU z `Tracing` (kategoria `disabled-by-default-v8.cpu_profiler`;
+    domena `Profiler` nie jest dostępna dla rozszerzeń), zsumowany per plik i
+    funkcja, z podpisem źródła: TO ROZSZERZENIE / inne rozszerzenie (nazwy
+    popularnych blokerów po ID) / host strony;
+  - co 2 s sprawdza, czy strona odpowiada; jeśli nie — `Debugger.pause` (jak
+    przycisk pauzy w DevTools) i stos wywołań: która funkcja blokuje stronę;
+  - na końcu RAM karty (jeśli nie wisi). Wynik w popupie i w „Kopiuj raport"
+    (pole `diagnosis`).
+  - Zweryfikowane: zawieszona strona testowa → „zawiesiła się po 4 s, blokuje:
+    busyLoop — loop.html:11"; pętla przez ochronę DOM w starej v6.17 → profil
+    wskazuje `content.js` tego rozszerzenia (`isProtected`); artykuł WP z
+    uBlock Origin Lite → bez zawieszenia, 3 s CPU strony w 30 s, rozszerzenie
+    210 ms, RAM 107 MB.
+- Popup: kolory błędów/sukcesu w sekcjach informacyjnych.
+
 ## v6.18 (2026-10-26)
 
 ### Naprawione
