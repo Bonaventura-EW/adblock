@@ -1,5 +1,19 @@
 # Changelog
 
+## v6.17 (2026-10-26)
+
+### Naprawione (przegląd całości po v6.16)
+- **Zawieszony pomiar RAM nie trzyma już debuggera.** `measureTab` w
+  `background.js` ma twardy limit 10 s: po nim odłącza debugger i zwraca błąd.
+  Wcześniej zawieszona komenda DevTools zostawiała pasek „debuguje" bez końca,
+  a `pendingMeasure` blokował kolejne pomiary tej karty do restartu service
+  workera (popup miał limit od v6.16, tło — nie).
+
+### Dokumentacja
+- README: po przełączeniu domeny/adresu karta odświeża się sama (od v6.13);
+  usunięta nieaktualna instrukcja „odśwież F5".
+- `memcheck.js`: komentarz — korzysta z niego też service worker.
+
 ## v6.16 (2026-10-26)
 
 ### Naprawione

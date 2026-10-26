@@ -84,7 +84,8 @@ Kliknij ikonę rozszerzenia:
 - **Aktywne na tym adresie** — wyłącz tylko dla bieżącego, konkretnego adresu.
 - **Usunięte ściany** — licznik usuniętych blokad (z przyciskiem reset).
 
-Po zmianie odśwież stronę (F5), aby zaczęła obowiązywać.
+Po zmianie karta odświeża się sama i zmiana od razu obowiązuje (gdyby się nie
+odświeżyła, popup poprosi o F5).
 
 ## Pamięć tej karty
 

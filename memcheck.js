@@ -1,6 +1,7 @@
 // Universal Adblock Spoof — ocena zużycia pamięci karty
 // ════════════════════════════════════════════════════════════════════════════
-// Wspólne dla monitor.js (ISOLATED world) i popup.js. Monitor nie widzi
+// Wspólne dla monitor.js (ISOLATED world), popup.js i background.js (próg RAM
+// dla czerwonej ikony). Monitor nie widzi
 // prawdziwego RAM-u (chrome.processes działa tylko w kanale Dev, a
 // performance.memory jest zaokrąglane i odświeżane rzadko), więc ocenia tanie
 // wskaźniki: rozmiar DOM, ramki, obrazki, wideo, wzrost w czasie. Pomiar przez

@@ -309,9 +309,25 @@ async function memoryDump(target) {
   };
 }
 
+// Twardy limit całego pomiaru (v6.17): zawieszona komenda DevTools nie może
+// trzymać podłączonego debuggera (pasek „debuguje" bez końca) ani blokować
+// kolejnych pomiarów tej karty przez pendingMeasure.
+const MEASURE_TIMEOUT_MS = 10000;
+
+function measureTab(tabId) {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(async () => {
+      await chrome.debugger.detach({ tabId }).catch(() => {});
+      resolve({ error: `Pomiar przerwany po ${MEASURE_TIMEOUT_MS / 1000} s — przeglądarka nie odpowiedziała.` });
+    }, MEASURE_TIMEOUT_MS);
+  });
+  return Promise.race([measureTabNow(tabId), timeout]).finally(() => clearTimeout(timer));
+}
+
 // Dokładny pomiar przez protokół DevTools. Na czas pomiaru (i kilka sekund
 // po nim) przeglądarka pokazuje pasek „rozszerzenie debuguje tę przeglądarkę".
-async function measureTab(tabId) {
+async function measureTabNow(tabId) {
   const target = { tabId };
   try {
     await chrome.debugger.attach(target, '1.3');
