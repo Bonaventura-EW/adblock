@@ -1,5 +1,22 @@
 # Changelog
 
+## v6.8 (2026-10-26)
+
+### Nowe
+- **Ikona rozszerzenia robi się czerwona**, gdy karta zużywa dużo RAM-u
+  (≥ 500 MB) albo tanie wskaźniki monitora są wysokie. Ustawiane per karta
+  (`chrome.action.setIcon`, nowe pliki `icons/icon*-red.png`). Znaczek pokazuje
+  wtedy RAM w MB (np. „620", „1.2G") albo „RAM", gdy alarmują tylko wskaźniki.
+- **Auto-pomiar RAM aktywnej karty**: co 5 min (`chrome.alarms`) i 3 s po
+  przełączeniu na kartę, której ostatni pomiar ma ponad 5 min. Najwyżej jeden
+  auto-pomiar na minutę (każdy pokazuje pasek „debuguje"). Przełącznik w
+  popupie („Auto-pomiar RAM co 5 min", `storage.local.autoRam`, domyślnie
+  włączony). Nowe uprawnienie `alarms`.
+- Stan karty (poziom monitora, ostatni RAM) w `storage.session`, zapisy per
+  karta serializowane; nawigacja w karcie resetuje ikonę i znaczek.
+
+---
+
 ## v6.7 (2026-10-26)
 
 ### Nowe

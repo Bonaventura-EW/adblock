@@ -84,6 +84,7 @@
     .mem-actions { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
     .mem-actions button { flex: none; white-space: nowrap; }
     .mem-note { color: #8a9096; font-size: 10px; line-height: 1.4; }
+    .auto-ram { margin-top: 10px; border-top: 1px solid #2c2c32; font-size: 12px; }
     .mem-report { margin-top: 12px; padding-top: 10px; border-top: 1px solid #2c2c32; font-size: 12px; }
     .mem-report .tm { margin-top: 4px; color: #9aa0a6; }
     .mem-report .tm small { font-size: 10px; }
@@ -144,6 +145,16 @@
       <span class="mem-note">Pomiar przez debugger — na kilka sekund pojawia się pasek „debuguje tę przeglądarkę".</span>
     </div>
     <div class="mem-info" id="memPrecise"></div>
+    <div class="row auto-ram">
+      <label for="autoRam">
+        Auto-pomiar RAM co 5 min
+        <small>Ikona robi się czerwona, gdy karta ma ≥ 500 MB. Każdy pomiar to pasek „debuguje" na kilka sekund.</small>
+      </label>
+      <label class="switch">
+        <input type="checkbox" id="autoRam" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
     <div class="mem-report">
       <div id="tmBox" hidden>
         <label for="tmMB">RAM karty z Menedżera zadań Vivaldi (Shift+Esc)</label>

@@ -4,8 +4,11 @@
 // pamięci (ISOLATED, tylko główna ramka) dynamicznie, dzięki czemu można je
 // wyłączać per domena/adres przez excludeMatches.
 // Liczy też usunięte ściany (removedCount) na podstawie wiadomości z bridge.js,
-// ustawia znaczek „RAM" na ikonie i wykonuje dokładny pomiar pamięci karty.
+// mierzy RAM kart (popup + auto-pomiar co 5 min) i zmienia ikonę na czerwoną,
+// gdy karta zużywa dużo pamięci.
 // ════════════════════════════════════════════════════════════════════════════
+
+importScripts('memcheck.js');
 
 const MATCHES = ['*://*/*'];
 
@@ -116,8 +119,18 @@ async function applyRegistration() {
   await applyDisabledDomainsRule(store.disabledDomains);
 }
 
+// Auto-pomiar RAM aktywnej karty (wyłączalny w popupie: storage.local.autoRam).
+const RAM_ALARM = 'ram-check';
+const AUTO_RAM_MS = 5 * 60000;
+
+function ensureRamAlarm() {
+  chrome.alarms.create(RAM_ALARM, { periodInMinutes: AUTO_RAM_MS / 60000 });
+}
+
 chrome.runtime.onInstalled.addListener(applyRegistration);
 chrome.runtime.onStartup.addListener(applyRegistration);
+chrome.runtime.onInstalled.addListener(ensureRamAlarm);
+chrome.runtime.onStartup.addListener(ensureRamAlarm);
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && (changes.disabledDomains || changes.disabledUrls)) {
@@ -126,15 +139,68 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 // ── Pamięć karty ────────────────────────────────────────────────────────────
-// Znaczek na ikonie: monitor.js wysyła poziom (0 ok, 1 dużo, 2 bardzo dużo).
+// Stan per karta w storage.session ('tm:<tabId>'): monitorLevel z monitor.js
+// (0 ok, 1 dużo, 2 bardzo dużo) oraz ramMB/ramT z ostatniego pomiaru RAM.
+// Ikona jest czerwona, gdy którykolwiek poziom ≥ 1; znaczek pokazuje MB (gdy
+// RAM przekracza próg) albo „RAM" (gdy alarmują tylko tanie wskaźniki).
 const BADGE_COLORS = { 1: '#c6a15c', 2: '#d93025' };
+const ICONS = {
+  normal: { 16: 'icons/icon16.png', 32: 'icons/icon32.png', 48: 'icons/icon48.png', 128: 'icons/icon128.png' },
+  red: { 16: 'icons/icon16-red.png', 32: 'icons/icon32-red.png', 48: 'icons/icon48-red.png', 128: 'icons/icon128-red.png' }
+};
 
-function setMemBadge(tabId, level) {
-  chrome.action.setBadgeText({ tabId, text: level > 0 ? 'RAM' : '' }).catch(() => {});
+const tabKey = (tabId) => 'tm:' + tabId;
+
+async function getTabState(tabId) {
+  return (await chrome.storage.session.get(tabKey(tabId)))[tabKey(tabId)] || {};
+}
+
+// Zapisy stanu jednej karty idą po kolei (monitor i pomiar mogą przyjść
+// naraz, a read-modify-write nadpisałby jeden z nich).
+const tabQueues = new Map();
+
+function queueTab(tabId, fn) {
+  const next = (tabQueues.get(tabId) || Promise.resolve()).then(fn).catch(() => {});
+  tabQueues.set(tabId, next);
+  return next;
+}
+
+function updateTabState(tabId, patch) {
+  return queueTab(tabId, async () => {
+    const st = Object.assign(await getTabState(tabId), patch);
+    await chrome.storage.session.set({ [tabKey(tabId)]: st });
+    renderTabIndicator(tabId, st);
+  });
+}
+
+function renderTabIndicator(tabId, st) {
+  const ramLevel = st.ramMB != null ? AdblockSpoofMem.levelOf('tabMB', st.ramMB) : 0;
+  const level = Math.max(st.monitorLevel || 0, ramLevel);
+  let text = '';
+  if (ramLevel > 0) text = st.ramMB >= 1000 ? (st.ramMB / 1024).toFixed(1) + 'G' : String(st.ramMB);
+  else if (level > 0) text = 'RAM';
+  chrome.action.setIcon({ tabId, path: level > 0 ? ICONS.red : ICONS.normal }).catch(() => {});
+  chrome.action.setBadgeText({ tabId, text }).catch(() => {});
   if (level > 0) {
     chrome.action.setBadgeBackgroundColor({ tabId, color: BADGE_COLORS[level] }).catch(() => {});
   }
 }
+
+// Nowa strona w karcie → stan i ikona od zera (wartości per karta nie
+// resetują się same przy nawigacji).
+chrome.tabs.onUpdated.addListener((tabId, info) => {
+  if (info.status !== 'loading') return;
+  lastMeasure.delete(tabId);
+  queueTab(tabId, async () => {
+    await chrome.storage.session.remove(tabKey(tabId));
+    renderTabIndicator(tabId, {});
+  });
+});
+chrome.tabs.onRemoved.addListener((tabId) => {
+  lastMeasure.delete(tabId);
+  queueTab(tabId, () => chrome.storage.session.remove(tabKey(tabId)))
+    .then(() => tabQueues.delete(tabId));
+});
 
 const mb = (b) => Math.round((b || 0) / 1048576);
 
@@ -244,11 +310,41 @@ function measureTabCached(tabId, maxAgeMs) {
   const p = measureTab(tabId).then((res) => {
     pendingMeasure.delete(tabId);
     if (!res.error) lastMeasure.set(tabId, res);
+    if (res.tabMB != null) updateTabState(tabId, { ramMB: res.tabMB, ramT: res.t });
     return res;
   });
   pendingMeasure.set(tabId, p);
   return p;
 }
+
+// Auto-pomiar: aktywna karta co 5 min oraz po przełączeniu na kartę, której
+// ostatni pomiar jest starszy niż 5 min. Najwyżej jeden auto-pomiar na minutę,
+// bo każdy pokazuje pasek „debuguje".
+let lastAutoMeasure = 0;
+
+async function autoMeasure(tab) {
+  if (!tab || !tab.active || !/^https?:/.test(tab.url || '')) return;
+  const { autoRam } = await chrome.storage.local.get('autoRam');
+  if (autoRam === false) return;
+  const st = await getTabState(tab.id);
+  if (st.ramT && Date.now() - st.ramT < AUTO_RAM_MS - 10000) return;
+  if (Date.now() - lastAutoMeasure < 60000) return;
+  lastAutoMeasure = Date.now();
+  await measureTabCached(tab.id, 0);
+}
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name !== RAM_ALARM) return;
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  autoMeasure(tab);
+});
+
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  // Chwila zwłoki: przy szybkim przeskakiwaniu po kartach nic się nie mierzy.
+  setTimeout(async () => {
+    autoMeasure(await chrome.tabs.get(tabId).catch(() => null));
+  }, 3000);
+});
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg) return false;
@@ -259,7 +355,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       chrome.storage.local.set({ removedCount: next });
     });
   } else if (msg.type === 'adblock-spoof-mem-level' && sender.tab) {
-    setMemBadge(sender.tab.id, msg.level);
+    updateTabState(sender.tab.id, { monitorLevel: msg.level });
   } else if (msg.type === 'adblock-spoof-measure') {
     measureTabCached(msg.tabId, msg.maxAgeMs).then(sendResponse);
     return true;

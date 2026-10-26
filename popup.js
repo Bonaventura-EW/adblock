@@ -20,6 +20,7 @@
     memInfo: document.getElementById('memInfo'),
     memPrecise: document.getElementById('memPrecise'),
     measure: document.getElementById('measure'),
+    autoRam: document.getElementById('autoRam'),
     ramMB: document.getElementById('ramMB'),
     ramDetail: document.getElementById('ramDetail'),
     tmBox: document.getElementById('tmBox'),
@@ -65,7 +66,7 @@
   }
 
   async function getStore() {
-    return chrome.storage.local.get(['disabledDomains', 'disabledUrls', 'removedCount']);
+    return chrome.storage.local.get(['disabledDomains', 'disabledUrls', 'removedCount', 'autoRam']);
   }
 
   function toggleListMember(list, value, shouldContain) {
@@ -97,6 +98,7 @@
     const store = await getStore();
     els.count.textContent = store.removedCount || 0;
     refreshStatus(store);
+    els.autoRam.checked = store.autoRam !== false;
 
     memTabId = tab.id;
     await loadMemory();
@@ -220,6 +222,10 @@
   }
 
   els.measure.addEventListener('click', () => runMeasure(true));
+
+  els.autoRam.addEventListener('change', () => {
+    chrome.storage.local.set({ autoRam: els.autoRam.checked });
+  });
 
   // ── Raport do analizy (schowek / plik .json) ──────────────────────────────
   async function buildReport() {

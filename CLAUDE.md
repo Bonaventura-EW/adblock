@@ -26,7 +26,7 @@ się nie włącza.
 
 ```
 manifest.json        MV3, host_permissions: *://*/*, permissions: scripting, storage,
-                     declarativeNetRequest, debugger (dokładny pomiar pamięci)
+                     declarativeNetRequest, debugger (pomiar pamięci), alarms
 content.js           rdzeń, world: MAIN, document_start, allFrames
 background.js        service worker: dynamiczna rejestracja skryptów, licznik,
                      znaczek „RAM", pomiar pamięci przez chrome.debugger
@@ -39,6 +39,7 @@ popup.html/popup.js  UI: wersja, toggle per domena/adres, sekcja „Pamięć tej
 rules/rules.json     7 reguł declarativeNetRequest (redirect ad-check → fake JSON, GPT)
 fake-scripts/        oryginalne skrypty Google (gpt.js 112KB, pubads_impl.js 596KB)
 icons/               16/32/48/128px PNG (neonowe zielone koło + żółty bolt)
+                     + icon*-red.png (czerwone koło — karta zużywa dużo RAM-u)
 scripts/lint.mjs     walidacja składni + JSON + zakresu (npm run lint)
 package.json         "lint": "node scripts/lint.mjs"
 README.md            dokumentacja dla użytkownika
@@ -95,6 +96,16 @@ poziomy:
    (`processId`, ramka bez `parent` = proces strony). Wynik młodszy niż 20 s
    jest zwracany z pamięci SW (`maxAgeMs`), równoległe prośby czekają na jeden
    pomiar. Przeglądarka pokazuje pasek „debuguje" przez kilka sekund.
+
+**Ikona i znaczek (v6.8)** — stan per karta w `storage.session` (`tm:<tabId>`:
+`monitorLevel`, `ramMB`, `ramT`), zapisy serializowane per karta (`queueTab`).
+Ikona czerwona (`icons/icon*-red.png`), gdy `max(monitorLevel, poziom RAM) ≥ 1`
+(RAM ≥ 500 MB wg `LIMITS.tabMB`); znaczek: MB (np. „620", „1.2G") albo „RAM".
+`tabs.onUpdated` status `loading` resetuje stan i ikonę (wartości per karta
+nie resetują się same przy nawigacji). **Auto-pomiar**: alarm `ram-check` co
+5 min mierzy aktywną kartę ostatnio aktywnego okna; `tabs.onActivated` + 3 s
+mierzy kartę, jeśli jej pomiar ma > 5 min; limit 1 auto-pomiar/min;
+wyłączany `storage.local.autoRam = false` (przełącznik w popupie).
 
 Popup pyta monitor przez `chrome.tabs.sendMessage`; monitor prosi wtedy
 content.js (postMessage `stats-req` → `stats`) o statystyki warstwy ciężkiej

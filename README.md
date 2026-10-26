@@ -83,10 +83,18 @@ Pomiar idzie przez protokół DevTools, więc na kilka sekund pojawia się pasek
 „rozszerzenie debuguje tę przeglądarkę". Ponowne otwarcie popupu w ciągu 20 s
 pokazuje poprzedni wynik bez nowego pomiaru; **Zmierz ponownie** mierzy od nowa.
 
+**Czerwona ikona.** Gdy karta zużywa ≥ 500 MB, ikona rozszerzenia na tej
+karcie robi się czerwona, a znaczek pokazuje liczbę MB (np. „620", „1.2G").
+Rozszerzenie samo mierzy aktywną kartę co 5 minut i chwilę po przełączeniu na
+kartę, której nie mierzyło od 5 minut. Za każdym razem na kilka sekund pojawia
+się pasek „debuguje". Auto-pomiar wyłączysz przełącznikiem w popupie. Pasek
+można też całkiem ukryć, uruchamiając Vivaldi z flagą
+`--silent-debugger-extension-api` (dopisz ją do skrótu na pulpicie).
+
 Dodatkowo rozszerzenie co 30 s sprawdza tanie wskaźniki zużycia pamięci na bieżącej
 karcie (rozmiar DOM, liczba ramek, obrazki, wideo, wzrost w czasie). Gdy są
-wysokie, na ikonie pojawia się znaczek **RAM** (żółty — dużo, czerwony — bardzo
-dużo). W popupie, w sekcji **Pamięć tej karty**, widać powody oraz to, ile pracy
+wysokie, ikona też robi się czerwona, a znaczek pokazuje **RAM** (żółty —
+dużo, czerwony — bardzo dużo). W popupie, w sekcji **Pamięć tej karty**, widać powody oraz to, ile pracy
 wykonało na tej stronie samo rozszerzenie.
 
 Pomiar pokazuje też stertę JS i pamięć obiektów DOM. Działa również na

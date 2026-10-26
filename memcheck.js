@@ -75,5 +75,5 @@ var AdblockSpoofMem = (function () {
     return { level: level, reasons: reasons };
   }
 
-  return { LIMITS: LIMITS, evaluate: evaluate };
+  return { LIMITS: LIMITS, levelOf: levelOf, evaluate: evaluate };
 })();
