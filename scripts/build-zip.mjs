@@ -23,6 +23,8 @@ const INCLUDE = [
   'content.js',
   'background.js',
   'bridge.js',
+  'memcheck.js',
+  'monitor.js',
   'popup.html',
   'popup.js',
   'rules',

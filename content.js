@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.14
+// Universal Adblock Spoof v6.15
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -15,8 +15,8 @@
   'use strict';
 
   // Znacznik wersji — do potwierdzenia w konsoli, że ten kod jest aktywny:
-  //   window.__adblockSpoof   →   "6.14"
-  try { window.__adblockSpoof = '6.14'; } catch (e) {}
+  //   window.__adblockSpoof   →   "6.15"
+  try { window.__adblockSpoof = '6.15'; } catch (e) {}
 
   // Czy wykryto ścianę adblock. Dopóki false — warstwa ciężka śpi.
   var wallDetected = false;
@@ -25,6 +25,19 @@
   function reportRemoved() {
     try { window.postMessage({ source: 'adblock-spoof', type: 'removed' }, '*'); } catch (e) {}
   }
+
+  // Statystyki warstwy ciężkiej dla monitora pamięci (monitor.js pyta o nie
+  // tylko po otwarciu popupu).
+  var heavyStats = { runs: 0, ms: 0 };
+  window.addEventListener('message', function (event) {
+    if (event.source !== window) return;
+    var d = event.data;
+    if (!d || d.source !== 'adblock-spoof' || d.type !== 'stats-req') return;
+    try {
+      window.postMessage({ source: 'adblock-spoof', type: 'stats', wall: wallDetected,
+        runs: heavyStats.runs, ms: heavyStats.ms }, '*');
+    } catch (e) {}
+  }, false);
 
   // ══════════════════════════════════════════════════════════════════════════
   // WARSTWA LEKKA — bezpieczna, zawsze aktywna
@@ -906,6 +919,7 @@
   function runHeavy() {
     if (!wallDetected) return;
     lastHeavyRun = Date.now();
+    var t0 = performance.now();
     injectBaseCSS();
     applyWPScreeningCSS();
     cleanGeneric();
@@ -914,6 +928,8 @@
     revealArticleContent();
     installMediaReveal();
     installGoogletag();
+    heavyStats.runs++;
+    heavyStats.ms += performance.now() - t0;
   }
 
   // Dławik warstwy ciężkiej: pełny skan strony maksymalnie raz na sekundę.

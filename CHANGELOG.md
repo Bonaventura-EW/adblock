@@ -1,5 +1,48 @@
 # Changelog
 
+## v6.15 (2026-10-26)
+
+Scalenie pracy z gałęzi `claude/vivaldi-extension-ram-usage-9dgp0s` do `main`.
+Tamta gałąź wyszła z v6.3 i miała własne „v6.4–v6.8" (kolidujące numery, inny
+kod niż `main`). Jej przyspieszenia warstwy ciężkiej są już w `main` jako v6.10,
+a klikalne przełączniki i wersja w popupie jako v6.8/v6.13/v6.14 — tych NIE
+przenoszono. Przeniesiono wyłącznie to, czego w `main` brakowało:
+
+### Nowe
+- **Popup → „Pamięć tej karty": RAM karty w MB** — suma „private footprint"
+  procesu strony i procesów jej ramek (ta sama miara co Menedżer zadań), plus
+  RAM całej przeglądarki. Źródło: globalny zrzut pamięci przez `chrome.debugger`
+  (`Tracing.requestMemoryDump`, memory-infra; procesy karty z
+  `TracingStartedInBrowser`). Do tego sterta JS, obiekty DOM, bufory, węzły,
+  nasłuchiwacze. Pomiar przy otwarciu popupu (wynik młodszy niż 20 s z pamięci
+  SW), „Zmierz ponownie" wymusza nowy. Nowe uprawnienie `debugger`.
+- **Monitor pamięci** (`monitor.js` + `memcheck.js`, ISOLATED, tylko główna
+  ramka): co 30 s tanie wskaźniki — elementy DOM, ramki, wideo, szacunek
+  zdekodowanych obrazków, żądania per host; historia z ostatniej godziny.
+  Ocena z powodami („dlaczego") w popupie, łącznie z pracą warstwy ciężkiej
+  rozszerzenia na tej stronie (przebiegi, ms CPU).
+- **Czerwona ikona**, gdy karta zużywa ≥ 500 MB albo wskaźniki są wysokie;
+  znaczek pokazuje MB („620", „1.2G") albo „RAM". Per karta, reset przy
+  nawigacji. Nowe pliki `icons/icon*-red.png`.
+- **Auto-pomiar RAM aktywnej karty** co 5 min (`chrome.alarms`) i 3 s po
+  przełączeniu na kartę z pomiarem starszym niż 5 min; najwyżej 1 auto-pomiar
+  na minutę. Przełącznik w popupie (`storage.local.autoRam`, domyślnie wł.).
+  Nowe uprawnienie `alarms`.
+- **Raport do analizy**: „Kopiuj raport" (schowek) i „Pobierz .json".
+- Wersja także w podpowiedzi ikony (`chrome.action.setTitle`).
+
+### Naprawione
+- **Wyłączenie adresu nie działało dla adresu z `?parametrami`** — wzorzec
+  dopasowania obejmuje query; dodany wariant `ścieżka?*`.
+- **Wyłączenie adresu z portem psuło rejestrację** — Chromium odrzuca
+  `*://host:port/…` („Invalid port"); wzorce używają `hostname`.
+- **Wyłączenie domeny nie wyłączało przekierowań GPT z `rules.json`** —
+  dynamiczna reguła DNR `allow` (id 1000, `initiatorDomains`).
+
+### Proces
+- `CLAUDE.md`: zawsze wypychaj na `main`, ZIP buduj tylko z `main`.
+- `scripts/build-zip.mjs`: paczka zawiera `memcheck.js` i `monitor.js`.
+
 ## v6.14 (2026-07-25)
 
 ### Naprawione

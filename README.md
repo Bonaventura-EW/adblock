@@ -86,6 +86,36 @@ Kliknij ikonę rozszerzenia:
 
 Po zmianie odśwież stronę (F5), aby zaczęła obowiązywać.
 
+## Pamięć tej karty
+
+Po otwarciu popupu widać **RAM tej karty** w MB — proces strony plus procesy
+jej ramek (np. reklam), czyli to samo, co Menedżer zadań Vivaldi (Shift+Esc),
+oraz powody, jeśli jest go dużo. Pomiar idzie przez protokół DevTools, więc na
+kilka sekund pojawia się pasek „rozszerzenie debuguje tę przeglądarkę".
+Ponowne otwarcie popupu w ciągu 20 s pokazuje poprzedni wynik;
+**Zmierz ponownie** mierzy od nowa. Pomiar działa też tam, gdzie rozszerzenie
+jest wyłączone, więc można porównać kartę z rozszerzeniem i bez.
+
+**Czerwona ikona.** Gdy karta zużywa ≥ 500 MB (albo strona ma bardzo duży DOM,
+dużo ramek lub obrazków), ikona na tej karcie robi się czerwona, a znaczek
+pokazuje liczbę MB (np. „620", „1.2G") albo „RAM". Rozszerzenie samo mierzy
+aktywną kartę co 5 minut i chwilę po przełączeniu na kartę, której nie mierzyło
+od 5 minut. Auto-pomiar wyłączysz przełącznikiem w popupie. Pasek „debuguje"
+można całkiem ukryć, uruchamiając Vivaldi z flagą
+`--silent-debugger-extension-api` (dopisz ją do skrótu na pulpicie).
+
+### Raport do analizy
+
+1. Zostaw kartę otwartą tak długo, jak zwykle (monitor zbiera historię z
+   ostatniej godziny).
+2. Kliknij **Kopiuj raport** (i wklej go w rozmowie) albo **Pobierz .json**
+   (i dołącz plik). Raport zawiera RAM karty i dokładny pomiar.
+3. Dla porównania: wyłącz rozszerzenie na tej domenie, odczekaj podobny czas i
+   zrób drugi raport.
+
+Raport zawiera adres strony bez parametrów (`?…`) i nazwy hostów, z których
+strona pobiera najwięcej zasobów — nic więcej o stronie ani o Tobie.
+
 ## Dodawanie obsługi nowej strony
 
 W trybie uniwersalnym **nie dodaje się domen**. Jeśli jakaś ściana się
@@ -109,9 +139,12 @@ Folder `_metadata/` jest generowany przez przeglądarkę i ignorowany przez git.
 ```
 manifest.json      konfiguracja MV3 (zakres *://*/*)
 content.js         rdzeń: warstwa lekka + detekcja + warstwa ciężka (MAIN world)
-background.js      service worker: dynamiczna rejestracja + licznik
+background.js      service worker: dynamiczna rejestracja, licznik, pomiar RAM,
+                   czerwona ikona, auto-pomiar
 bridge.js          most ISOLATED ↔ SW (licznik)
-popup.html/js      wyłączanie per domena/adres + licznik
+memcheck.js        progi i powody „dużo pamięci"
+monitor.js         tanie wskaźniki pamięci karty (co 30 s)
+popup.html/js      wyłączanie per domena/adres, licznik, pamięć karty, raport
 rules/rules.json   reguły declarativeNetRequest (adblock-check, GPT)
 fake-scripts/      oryginalne skrypty Google (nie modyfikować)
 scripts/lint.mjs   walidacja

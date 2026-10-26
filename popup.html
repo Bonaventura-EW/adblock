@@ -73,6 +73,37 @@
     }
     button.reset:hover { background: #2c2c32; }
     .unsupported { color: #8a9096; font-size: 12px; }
+    .mem { border-top: 1px solid #38383f; }
+    .mem-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; }
+    .lvl { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .lvl.l0 { background: #18391f; color: #5cd47a; }
+    .lvl.l1 { background: #3a311f; color: #e0b866; }
+    .lvl.l2 { background: #3a1f1f; color: #f08585; }
+    .lvl.na { background: #2c2c32; color: #9aa0a6; }
+    .ram { margin-top: 8px; display: flex; align-items: baseline; gap: 8px; }
+    .ram-mb { font-size: 24px; font-weight: 700; color: #e8e8ea; }
+    .ram-mb.l1 { color: #e0b866; }
+    .ram-mb.l2 { color: #f08585; }
+    .ram-label { color: #9aa0a6; font-size: 12px; }
+    #ramDetail { margin-top: 2px; }
+    .mem ul { margin: 8px 0 0; padding-left: 16px; }
+    .mem li { margin: 3px 0; font-size: 12px; }
+    .mem li.r1 { color: #e0b866; }
+    .mem li.r2 { color: #f08585; }
+    .mem-info { margin-top: 8px; font-size: 11px; color: #9aa0a6; line-height: 1.5; }
+    .mem-actions { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+    .mem-actions button { flex: none; white-space: nowrap; }
+    .mem-note { color: #8a9096; font-size: 10px; line-height: 1.4; }
+    .auto-ram { margin-top: 10px; border-top: 1px solid #2c2c32; font-size: 12px; }
+    .mem-report { margin-top: 12px; padding-top: 10px; border-top: 1px solid #2c2c32; font-size: 12px; }
+    .mem-report .tm { margin-top: 4px; color: #9aa0a6; }
+    .mem-report .tm small { font-size: 10px; }
+    .mem-report input {
+      width: 70px; background: #2a2a30; color: #e8e8ea; border: 1px solid #4a4a52;
+      border-radius: 4px; padding: 2px 4px; font-size: 12px;
+    }
+    .mem-report .mem-note { margin-top: 6px; }
+    .mem-note.ok { color: #5cd47a; }
   </style>
 </head>
 <body>
@@ -110,11 +141,52 @@
 
   <div class="hint" id="hint">Odśwież stronę (F5), aby zastosować zmianę.</div>
 
+  <section class="mem" id="mem">
+    <div class="mem-head">
+      <span>Pamięć tej karty</span>
+      <span class="lvl na" id="memLevel">…</span>
+    </div>
+    <div class="ram">
+      <span class="ram-mb" id="ramMB">…</span>
+      <span class="ram-label">RAM tej karty</span>
+    </div>
+    <div class="mem-info" id="ramDetail"></div>
+    <ul id="memReasons"></ul>
+    <div class="mem-info" id="memInfo"></div>
+    <div class="mem-actions">
+      <button class="reset" id="measure">Zmierz dokładnie</button>
+      <span class="mem-note">Pomiar przez debugger — na kilka sekund pojawia się pasek „debuguje tę przeglądarkę".</span>
+    </div>
+    <div class="mem-info" id="memPrecise"></div>
+    <div class="row auto-ram">
+      <label for="autoRam">
+        Auto-pomiar RAM co 5 min
+        <small>Ikona robi się czerwona, gdy karta ma ≥ 500 MB. Każdy pomiar to pasek „debuguje" na kilka sekund.</small>
+      </label>
+      <span class="switch">
+        <input type="checkbox" id="autoRam" checked>
+        <label class="slider" for="autoRam"></label>
+      </span>
+    </div>
+    <div class="mem-report">
+      <div id="tmBox" hidden>
+        <label for="tmMB">RAM karty z Menedżera zadań Vivaldi (Shift+Esc)</label>
+        <div class="tm"><input type="number" id="tmMB" min="0" step="1" placeholder="np. 850"> MB <small>(opcjonalnie)</small></div>
+      </div>
+      <div class="mem-actions">
+        <button class="reset" id="copyReport">Kopiuj raport</button>
+        <button class="reset" id="saveReport">Pobierz .json</button>
+      </div>
+      <div class="mem-note" id="reportNote">Raport: RAM karty, wskaźniki z ostatniej godziny i dokładny pomiar. Wklej go w czacie albo dołącz plik.</div>
+    </div>
+  </section>
+
   <footer>
     <span>Usunięte ściany: <strong id="count">0</strong></span>
     <button class="reset" id="reset">Reset licznika</button>
   </footer>
 
+  <script src="memcheck.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

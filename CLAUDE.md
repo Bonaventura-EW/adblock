@@ -54,15 +54,22 @@ się nie włącza.
 ### Pliki
 
 ```
-manifest.json        MV3, host_permissions: *://*/* (uniwersalny)
+manifest.json        MV3, host_permissions: *://*/*, permissions: scripting, storage,
+                     declarativeNetRequest, debugger (pomiar RAM), alarms
 content.js           rdzeń, world: MAIN, document_start, allFrames
-background.js        service worker: dynamiczna rejestracja skryptów + licznik
+background.js        service worker: dynamiczna rejestracja skryptów, licznik,
+                     pomiar RAM kart (chrome.debugger), czerwona ikona, auto-pomiar
 bridge.js            world: ISOLATED — przekazuje postMessage → chrome.runtime
+memcheck.js          progi i powody „dużo pamięci" (wspólne: monitor, popup, SW)
+monitor.js           world: ISOLATED, tylko główna ramka, document_idle —
+                     co 30 s tanie wskaźniki pamięci karty
 popup.html/popup.js  UI: toggle per domena/adres + licznik usuniętych ścian
                      + badge wersji (z chrome.runtime.getManifest().version)
+                     + sekcja „Pamięć tej karty" (RAM, powody, raport)
 rules/rules.json     7 reguł declarativeNetRequest (redirect ad-check → fake JSON, GPT)
 fake-scripts/        oryginalne skrypty Google (gpt.js 112KB, pubads_impl.js 596KB)
 icons/               16/32/48/128px PNG (neonowe zielone koło + żółty bolt)
+                     + icon*-red.png (czerwone koło — karta zużywa dużo RAM-u)
 scripts/lint.mjs     walidacja składni + JSON + zakresu (npm run lint)
 scripts/build-zip.mjs budowa paczki instalacyjnej (npm run build)
 package.json         "lint" + "build"
@@ -90,9 +97,16 @@ content.js (MAIN)
 ### Wyłączanie per domena/adres
 
 `background.js` czyta `storage.local.disabledDomains[]` i `disabledUrls[]`,
-buduje `excludeMatches` i aktualizuje content.js + bridge.js dynamicznie przez
-`chrome.scripting`. Odpalane przy `onInstalled`, `onStartup`, `storage.onChanged`
-oraz na żądanie z popupu (`reapply-registration`).
+buduje `excludeMatches` i aktualizuje content.js + bridge.js + monitor dynamicznie
+przez `chrome.scripting`. Odpalane przy `onInstalled`, `onStartup`,
+`storage.onChanged` oraz na żądanie z popupu (`reapply-registration`).
+
+- Wzorce adresów używają `hostname` (bez portu — `*://host:port/` Chromium
+  odrzuca „Invalid port" i wtedy cała rejestracja się nie udaje) oraz wariantu
+  `ścieżka?*`, bo ścieżka we wzorcu obejmuje też query (v6.15).
+- Wyłączone domeny dostają dynamiczną regułę DNR `allow` (id 1000,
+  `initiatorDomains`), żeby nie działały na nich przekierowania z `rules.json`
+  (v6.15).
 
 **Klikalność przełącznika (v6.14) — NIE COFAĆ:** w `popup.html` „pigułka"
 przełącznika MUSI być `<label class="slider" for="…">`. Jako `<span>` przykrywała
@@ -108,6 +122,48 @@ rzucały „Duplicate/Nonexistent script ID" (łykane przez `catch`) → przeł�
 `updateContentScripts` (nie unregister+register), więc SW nie zginie „w połowie"
 i nie zostawi strony bez spoofu. Popup po zmianie wysyła `reapply-registration`,
 czeka na potwierdzenie i dopiero odświeża kartę — zmiana działa od razu.
+
+### Pamięć karty: monitor, pomiar RAM, czerwona ikona (v6.15)
+
+Zwykłe API nie dają RAM-u karty: `chrome.processes` jest tylko w kanale Dev, a
+`performance.memory` jest zaokrąglane i prawie się nie odświeża. Dlatego:
+
+1. **monitor.js** (zawsze, tanio) — co 30 s: elementy DOM, iframe'y, wideo,
+   szacunek zdekodowanych obrazków, żądania per host; historia 120 odczytów.
+   Ocena przez `memcheck.js`; do SW idzie tylko **zmiana poziomu**
+   (`adblock-spoof-mem-level`).
+2. **Pomiar RAM** (`measureTab` w `background.js`) — `chrome.debugger` na ok.
+   0,3–0,5 s: `Performance.getMetrics` + `Runtime.getHeapUsage` oraz
+   `Tracing.start` (kategorie `disabled-by-default-memory-infra` +
+   `disabled-by-default-devtools.timeline`) → `Tracing.requestMemoryDump` →
+   `Tracing.end`. Ze zdarzeń `ph:'v'` bierzemy
+   `process_totals.private_footprint_bytes` (hex) per pid — ta sama miara co
+   Menedżer zadań; procesy karty z `TracingStartedInBrowser.args.data.frames`
+   (`processId`; ramka bez `parent` = proces strony). Wynik młodszy niż
+   `maxAgeMs` (popup: 20 s) wraca z pamięci SW; równoległe prośby o tę samą
+   kartę czekają na jeden pomiar. Przeglądarka pokazuje pasek „debuguje" przez
+   kilka sekund (można go ukryć flagą `--silent-debugger-extension-api`).
+3. **Ikona i znaczek** — stan per karta w `storage.session` (`tm:<tabId>`:
+   `monitorLevel`, `ramMB`, `ramT`), zapisy serializowane per karta
+   (`queueTab`). Ikona czerwona (`icons/icon*-red.png`), gdy
+   `max(monitorLevel, poziom RAM) ≥ 1` (RAM ≥ 500 MB wg `LIMITS.tabMB`);
+   znaczek: MB („620", „1.2G") albo „RAM". `tabs.onUpdated` status `loading`
+   resetuje stan i ikonę (wartości per karta nie resetują się same).
+4. **Auto-pomiar** — alarm `ram-check` co 5 min mierzy aktywną kartę ostatnio
+   aktywnego okna; `tabs.onActivated` + 3 s mierzy kartę, jeśli jej pomiar ma
+   > 5 min; limit 1 auto-pomiar/min; wyłączany `storage.local.autoRam = false`.
+
+Popup pyta monitor przez `chrome.tabs.sendMessage` (`adblock-spoof-mem-now`);
+monitor prosi wtedy content.js (postMessage `stats-req` → `stats`) o statystyki
+warstwy ciężkiej (przebiegi, ms CPU) — ten postMessage leci tylko na żądanie.
+
+**Raport** — popup: „Kopiuj raport" / „Pobierz .json". JSON
+`report: 'adblock-spoof-memory'`: `version`, `created`, `userAgent`, `page`
+(bez query/hasha), `extensionActiveHere`, `taskManagerMB` (ręcznie, pole
+widoczne tylko gdy pomiar RAM zawiedzie), `evaluation`, `precise` (z `tabMB`,
+`mainMB`, `subframesMB`, `browserMB`), `sample` (z `heavy`), `first`,
+`history`, `limits`. Użytkownik wkleja go w rozmowie — tak analizujemy
+przypadki „dużo RAM-u".
 
 ## Kluczowe mechanizmy w content.js
 
