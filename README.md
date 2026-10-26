@@ -91,6 +91,21 @@ można porównać kartę z rozszerzeniem i bez.
 Pełnego RAM-u karty rozszerzenie nie zna (przeglądarka tego nie udostępnia) —
 ten pokazuje Menedżer zadań Vivaldi (**Shift+Esc**).
 
+### Raport do analizy
+
+1. Zostaw kartę otwartą tak długo, jak zwykle (monitor zbiera historię z
+   ostatniej godziny).
+2. Opcjonalnie: otwórz Menedżer zadań Vivaldi (**Shift+Esc**), odczytaj pamięć
+   tej karty i wpisz ją w popupie w polu „RAM karty z Menedżera zadań".
+3. Kliknij **Kopiuj raport** (i wklej go w rozmowie) albo **Pobierz .json**
+   (i dołącz plik). Raport sam wykona dokładny pomiar, jeśli jeszcze go nie
+   było.
+4. Dla porównania: wyłącz rozszerzenie na tej domenie, odśwież stronę, odczekaj
+   podobny czas i zrób drugi raport.
+
+Raport zawiera adres strony bez parametrów (`?…`) i nazwy hostów, z których
+strona pobiera najwięcej zasobów — nic więcej o stronie ani o Tobie.
+
 ## Dodawanie obsługi nowej strony
 
 W trybie uniwersalnym **nie dodaje się domen**. Jeśli jakaś ściana się

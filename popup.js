@@ -20,6 +20,10 @@
     memInfo: document.getElementById('memInfo'),
     memPrecise: document.getElementById('memPrecise'),
     measure: document.getElementById('measure'),
+    tmMB: document.getElementById('tmMB'),
+    copyReport: document.getElementById('copyReport'),
+    saveReport: document.getElementById('saveReport'),
+    reportNote: document.getElementById('reportNote'),
     reset: document.getElementById('reset')
   };
 
@@ -102,6 +106,8 @@
   let memTabId = null;
   let memSample = null;
   let memFirst = null;
+  let memHistory = [];
+  let lastPrecise = null;
 
   function addLine(parent, text, cls) {
     const el = document.createElement(parent === els.memReasons ? 'li' : 'div');
@@ -115,6 +121,7 @@
       const res = await chrome.tabs.sendMessage(memTabId, { type: 'adblock-spoof-mem-now' });
       memSample = res && res.sample;
       memFirst = res && res.first;
+      memHistory = (res && res.history) || [];
     } catch (e) {
       memSample = null; // monitor nie działa na tej karcie
     }
@@ -162,19 +169,82 @@
     }
   }
 
-  els.measure.addEventListener('click', async () => {
+  async function runMeasure() {
     els.measure.disabled = true;
     els.measure.textContent = 'Mierzę…';
-    let precise;
     try {
-      precise = await chrome.runtime.sendMessage({ type: 'adblock-spoof-measure', tabId: memTabId });
+      lastPrecise = await chrome.runtime.sendMessage({ type: 'adblock-spoof-measure', tabId: memTabId });
     } catch (e) {
-      precise = { error: 'Pomiar nieudany: ' + e.message };
+      lastPrecise = { error: 'Pomiar nieudany: ' + e.message };
     }
+    lastPrecise = lastPrecise || { error: 'Pomiar nieudany.' };
     await fetchSample();
-    renderMemory(precise || { error: 'Pomiar nieudany.' });
+    renderMemory(lastPrecise);
     els.measure.disabled = false;
     els.measure.textContent = 'Zmierz ponownie';
+  }
+
+  els.measure.addEventListener('click', runMeasure);
+
+  // ── Raport do analizy (schowek / plik .json) ──────────────────────────────
+  async function buildReport() {
+    if (!lastPrecise) await runMeasure();
+    else { await fetchSample(); renderMemory(lastPrecise); }
+    const tm = parseInt(els.tmMB.value, 10);
+    return {
+      report: 'adblock-spoof-memory',
+      version: chrome.runtime.getManifest().version,
+      created: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      page: currentUrl, // bez query i hasha
+      extensionActiveHere: els.domainToggle.checked && els.urlToggle.checked,
+      taskManagerMB: Number.isFinite(tm) ? tm : null,
+      evaluation: AdblockSpoofMem.evaluate(memSample, memFirst, lastPrecise),
+      precise: lastPrecise,
+      sample: memSample,
+      first: memFirst,
+      history: memHistory,
+      limits: AdblockSpoofMem.LIMITS
+    };
+  }
+
+  function showReportNote(text, ok) {
+    els.reportNote.textContent = text;
+    els.reportNote.className = 'mem-note' + (ok ? ' ok' : '');
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      // Zapas: stary mechanizm kopiowania przez zaznaczenie.
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    }
+  }
+
+  els.copyReport.addEventListener('click', async () => {
+    const text = JSON.stringify(await buildReport(), null, 1);
+    showReportNote((await copyText(text))
+      ? 'Skopiowano raport — wklej go w czacie (Ctrl+V).'
+      : 'Nie udało się skopiować — użyj „Pobierz .json".', true);
+  });
+
+  els.saveReport.addEventListener('click', async () => {
+    const report = await buildReport();
+    const blob = new Blob([JSON.stringify(report, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `adblock-spoof-raport-${currentHost}-${report.created.slice(0, 19).replace(/[:T]/g, '-')}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    showReportNote('Zapisano plik w Pobranych — dołącz go w czacie.', true);
   });
 
   els.domainToggle.addEventListener('change', async () => {

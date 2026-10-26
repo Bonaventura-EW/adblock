@@ -1,19 +1,22 @@
 // Universal Adblock Spoof — monitor pamięci karty
 // ════════════════════════════════════════════════════════════════════════════
 // ISOLATED world, tylko główna ramka. Co 30 s zbiera tanie wskaźniki zużycia
-// pamięci (memcheck.js) i wysyła do service workera wyłącznie zmianę poziomu
-// (znaczek „RAM" na ikonie). Popup pyta o bieżący odczyt przez
-// chrome.tabs.sendMessage; dopiero wtedy prosi content.js (MAIN) o statystyki
-// warstwy ciężkiej — postMessage widoczny dla strony leci tylko na żądanie.
+// pamięci (memcheck.js), trzyma historię z ostatniej godziny (do raportu) i
+// wysyła do service workera wyłącznie zmianę poziomu (znaczek „RAM" na ikonie).
+// Popup pyta o bieżący odczyt przez chrome.tabs.sendMessage; dopiero wtedy
+// prosi content.js (MAIN) o statystyki warstwy ciężkiej — postMessage widoczny
+// dla strony leci tylko na żądanie.
 // ════════════════════════════════════════════════════════════════════════════
 
 (function () {
   'use strict';
   var SAMPLE_MS = 30000;
+  var HISTORY_MAX = 120; // 1 h przy odczycie co 30 s — do raportu z popupu
   var PAGE_ID = Math.random().toString(36).slice(2);
 
   var first = null;
   var sentLevel = -1;
+  var history = [];
 
   // Liczba żądań per host (Resource Timing; rozmiary dla obcych domen są
   // ukryte przez przeglądarkę, liczba żądań nie).
@@ -65,6 +68,9 @@
   function tick() {
     var s = sample();
     if (!first) first = s;
+    history.push({ t: s.t, elements: s.elements, iframes: s.iframes, videos: s.videos,
+      images: s.images, imagesMB: s.imagesMB, requests: s.requests });
+    if (history.length > HISTORY_MAX) history.shift();
     var level = AdblockSpoofMem.evaluate(s, first).level;
     if (level !== sentLevel) {
       sentLevel = level;
@@ -100,7 +106,7 @@
     requestHeavyStats(function (heavy) {
       var s = sample();
       s.heavy = heavy;
-      sendResponse({ sample: s, first: first });
+      sendResponse({ sample: s, first: first, history: history });
     });
     return true;
   });

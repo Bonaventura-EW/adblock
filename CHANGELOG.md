@@ -1,5 +1,21 @@
 # Changelog
 
+## v6.6 (2026-10-26)
+
+### Nowe
+- **Raport pamięci do analizy** (popup → „Pamięć tej karty"): przyciski
+  **„Kopiuj raport"** (schowek, do wklejenia w czacie) i **„Pobierz .json"**.
+  Raport zawiera: wersję, przeglądarkę, adres (bez query/hasha), czy
+  rozszerzenie jest tu aktywne, ocenę z powodami, dokładny pomiar
+  (debugger — robiony automatycznie, jeśli jeszcze go nie było), bieżący i
+  pierwszy odczyt, pracę warstwy ciężkiej i progi.
+- Pole na **RAM karty z Menedżera zadań Vivaldi** (Shift+Esc) — wpisana
+  wartość trafia do raportu (rozszerzenie samo jej nie zna).
+- `monitor.js` trzyma historię odczytów z ostatniej godziny (120 × 30 s) —
+  w raporcie widać, czy strona rośnie w czasie.
+
+---
+
 ## v6.5 (2026-10-26)
 
 ### Nowe

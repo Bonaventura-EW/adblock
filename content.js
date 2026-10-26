@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.5
+// Universal Adblock Spoof v6.6
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //

@@ -35,7 +35,7 @@ memcheck.js          progi i powody „dużo pamięci" (wspólne: monitor + popu
 monitor.js           world: ISOLATED, tylko główna ramka, document_idle —
                      co 30 s tanie wskaźniki pamięci karty
 popup.html/popup.js  UI: wersja, toggle per domena/adres, sekcja „Pamięć tej
-                     karty", licznik usuniętych ścian
+                     karty" z raportem (schowek / .json), licznik ścian
 rules/rules.json     7 reguł declarativeNetRequest (redirect ad-check → fake JSON, GPT)
 fake-scripts/        oryginalne skrypty Google (gpt.js 112KB, pubads_impl.js 596KB)
 icons/               16/32/48/128px PNG (neonowe zielone koło + żółty bolt)
@@ -92,6 +92,13 @@ Dlatego dwa poziomy:
 Popup pyta monitor przez `chrome.tabs.sendMessage`; monitor prosi wtedy
 content.js (postMessage `stats-req` → `stats`) o statystyki warstwy ciężkiej
 (liczba przebiegów, ms CPU). Ten postMessage leci tylko na żądanie z popupu.
+
+**Raport (v6.6)** — popup: „Kopiuj raport" / „Pobierz .json". JSON
+`report: 'adblock-spoof-memory'` z polami: `version`, `created`, `userAgent`,
+`page` (bez query/hasha), `extensionActiveHere`, `taskManagerMB` (wpisane
+ręcznie z Shift+Esc), `evaluation`, `precise`, `sample` (z `heavy`), `first`,
+`history` (do 120 odczytów co 30 s), `limits`. Użytkownik wkleja go w
+rozmowie — tak analizujemy przypadki „dużo RAM-u".
 
 ## Kluczowe mechanizmy w content.js
 

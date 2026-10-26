@@ -78,6 +78,15 @@
     .mem-actions { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
     .mem-actions button { flex: none; white-space: nowrap; }
     .mem-note { color: #8a9096; font-size: 10px; line-height: 1.4; }
+    .mem-report { margin-top: 12px; padding-top: 10px; border-top: 1px solid #2c2c32; font-size: 12px; }
+    .mem-report .tm { margin-top: 4px; color: #9aa0a6; }
+    .mem-report .tm small { font-size: 10px; }
+    .mem-report input {
+      width: 70px; background: #2a2a30; color: #e8e8ea; border: 1px solid #4a4a52;
+      border-radius: 4px; padding: 2px 4px; font-size: 12px;
+    }
+    .mem-report .mem-note { margin-top: 6px; }
+    .mem-note.ok { color: #5cd47a; }
   </style>
 </head>
 <body>
@@ -124,7 +133,15 @@
       <span class="mem-note">Na chwilę pojawi się pasek „debuguje tę przeglądarkę".</span>
     </div>
     <div class="mem-info" id="memPrecise"></div>
-    <div class="mem-note" style="margin-top:8px">Pełny RAM karty: Menedżer zadań Vivaldi (Shift+Esc).</div>
+    <div class="mem-report">
+      <label for="tmMB">RAM karty z Menedżera zadań Vivaldi (Shift+Esc)</label>
+      <div class="tm"><input type="number" id="tmMB" min="0" step="1" placeholder="np. 850"> MB <small>(opcjonalnie)</small></div>
+      <div class="mem-actions">
+        <button class="reset" id="copyReport">Kopiuj raport</button>
+        <button class="reset" id="saveReport">Pobierz .json</button>
+      </div>
+      <div class="mem-note" id="reportNote">Raport: wskaźniki z ostatniej godziny + dokładny pomiar. Wklej go w czacie albo dołącz plik.</div>
+    </div>
   </section>
 
   <footer>
