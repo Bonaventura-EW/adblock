@@ -63,6 +63,7 @@ bridge.js            world: ISOLATED — przekazuje postMessage → chrome.runti
 memcheck.js          progi i powody „dużo pamięci" (wspólne: monitor, popup, SW)
 monitor.js           world: ISOLATED, tylko główna ramka, document_idle —
                      co 30 s tanie wskaźniki pamięci karty
+diag.html            strona startowa karty diagnozy (proces rozszerzenia)
 popup.html/popup.js  UI: toggle per domena/adres + licznik usuniętych ścian
                      + badge wersji (z chrome.runtime.getManifest().version)
                      + sekcja „Pamięć tej karty" (RAM, powody, raport)
@@ -160,19 +161,34 @@ Stan karty dostaje `busy: true` → ikona czerwona ze znakiem „!", popup:
 poziom „nie odpowiada".
 
 **Diagnoza (v6.19)** — popup „Diagnozuj (30 s)" → `startDiagnosis(url, tabId)`
-w `background.js`: nowa karta `about:blank` W TYM SAMYM OKNIE obok badanej
-(`windowId` + `index` — bez tego w Vivaldi karta się nie otwierała, v6.20),
-odpowiedź do popupu dopiero po utworzeniu karty; `chrome.debugger.attach`,
+w `background.js`: nowa karta `diag.html` (strona rozszerzenia, v6.21) W TYM
+SAMYM OKNIE obok badanej (`windowId` + `index` — bez tego w Vivaldi karta się
+nie otwierała, v6.20), odpowiedź do popupu dopiero po utworzeniu karty;
+`chrome.debugger.attach`,
 `Debugger.enable` + `setBreakpointsActive(false)` (obce pauzy wznawiamy),
 `Tracing.start` z `disabled-by-default-v8.cpu_profiler` (domena `Profiler`
 jest NIEDOSTĘPNA dla rozszerzeń), potem nawigacja do adresu. Co 2 s
 `Runtime.evaluate('1')` z limitem 1,5 s; brak odpowiedzi → `Debugger.pause` →
-stos (`scriptParsed` mapuje `scriptId` → URL dla skryptów inline). Profil:
+stos (`scriptParsed` mapuje `scriptId` → URL dla skryptów inline; `col`, bo
+skrypty WP to jedna linia) → `Debugger.resume` i obserwacja dalej (v6.21):
+`freezes[]` = przycięcia (moment, czas, ≤ 2 stosy), `hung` = brak odpowiedzi
+do końca obserwacji. Profil:
 `ProfileChunk` → czas własny per plik/funkcja, tylko procesy wykonujące kod
 serwisu albo tego rozszerzenia (`summarizeCpu`). Wynik w `storage.session`
 `diagLast` (popup zamyka się przy otwarciu nowej karty) i w raporcie
 (`diagnosis`). Na karcie, która już wisi, `Debugger.enable` nie odpowiada —
 stąd nowa karta.
+
+**Osobny proces karty diagnozy (v6.21) — NIE COFAĆ:** przeglądarka dokłada
+nowe karty serwisu do jego istniejącego procesu, także zawieszonego (u
+użytkownika: „Diagnoza przerwana: timeout"). Rozszerzenie NIE zabije
+zawieszonego procesu — `tabs.discard`, `tabs.remove` i `Page.crash`
+sprawdzone, proces żyje dalej. Dlatego `isolateDiagTab()` dodaje sesyjną
+regułę DNR (id = id karty, `tabIds`, `main_frame`+`sub_frame`) z nagłówkiem
+`Origin-Agent-Cluster: ?1` → proces przypisany do originu, niezgodny ze starym
+procesem serwisu. Reguła znika w `finally`. Start z `diag.html` (proces
+rozszerzenia), bo `about:blank` też mógł trafić do zawieszonego procesu.
+Test: `--process-per-site` w Chromium odtwarza współdzielenie procesu.
 
 **Przeładowanie (v6.20):** popup porównuje `version` z `manifest.json` na dysku
 (fetch) z `chrome.runtime.getManifest().version`; różnica = pliki podmienione

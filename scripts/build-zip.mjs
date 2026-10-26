@@ -27,6 +27,7 @@ const INCLUDE = [
   'monitor.js',
   'popup.html',
   'popup.js',
+  'diag.html',
   'rules',
   'fake-scripts',
   'icons'

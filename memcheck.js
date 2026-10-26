@@ -65,7 +65,8 @@ var AdblockSpoofMem = (function () {
 
     if (precise && precise.rendererBusy) {
       add(2, 'Strona nie odpowiada — jej wątek jest zablokowany (zawieszona albo mieli w kółko). ' +
-        'Tak wygląda karta, która zjada CPU i RAM; sprawdź ją w Menedżerze zadań (Shift+Esc).');
+        'Tak wygląda karta, która zjada CPU i RAM; sprawdź ją w Menedżerze zadań (Shift+Esc). ' +
+        '„Diagnozuj (30 s)" otworzy ją w osobnym procesie i pokaże, co ją blokuje.');
     }
 
     if (precise && !precise.error) {

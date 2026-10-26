@@ -113,6 +113,8 @@ karcie, przez 30 s nagra, który kod zużywa CPU, a gdy strona się zawiesi —
 zatrzyma ją jak pauza w DevTools i odczyta, która funkcja ją blokuje. Wynik
 podpisuje źródło: to rozszerzenie, inne rozszerzenie albo skrypt strony. Potem
 otwórz popup ponownie i kliknij **Kopiuj raport** — diagnoza jest w raporcie.
+Nowa karta dostaje własny proces, więc diagnoza działa także wtedy, gdy
+badana karta wciąż wisi.
 
 ### Raport do analizy
 

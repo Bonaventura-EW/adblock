@@ -1,5 +1,41 @@
 # Changelog
 
+## v6.21 (2026-10-26)
+
+### Naprawione
+- **„Diagnoza przerwana: timeout" przy zawieszonej karcie WP** (raport
+  użytkownika z v6.20). Przyczyna: przeglądarka dokłada nowe karty serwisu do
+  jego istniejącego procesu, więc karta diagnozy trafiała do procesu, który
+  już wisiał, a `Debugger.enable` nie dostawał odpowiedzi. Odtworzone w
+  Chromium z `--process-per-site`.
+  - Rozszerzenie nie potrafi zakończyć zawieszonego procesu. Sprawdzone:
+    `chrome.tabs.discard`, zamknięcie karty i `Page.crash` — proces dalej mieli.
+  - Dlatego karta diagnozy dostaje **osobny proces**: tymczasowa reguła DNR
+    (tylko ta karta, usuwana po diagnozie) dodaje nagłówek
+    `Origin-Agent-Cluster: ?1`. Chromium daje wtedy stronie proces przypisany
+    do originu, a nie do całego serwisu, więc nie może trafić do starego
+    procesu. Zachowanie strony się nie zmienia — Chromium i tak domyślnie
+    izoluje originy (`window.originAgentCluster` było już `true`).
+  - Karta startuje od `diag.html` (proces rozszerzenia) zamiast `about:blank`,
+    które też mogło trafić do zawieszonego procesu.
+  - Test: zawieszona karta + `--process-per-site` — przed poprawką strona w
+    karcie diagnozy nie odpowiadała od razu, po poprawce jest stos
+    (`busyLoop … loop.html:11`) i profil CPU.
+- **Przycięcie ≠ zawieszenie.** Wcześniej jedno długie zadanie > 1,5 s
+  kończyło obserwację jako „ZAWIESIŁA SIĘ" (zdarzyło się w teście na artykule
+  WP, choć strona po chwili działała dalej). Teraz po pauzie i stosie strona
+  jest wznawiana i obserwowana do końca:
+  - `freezes` — każde przycięcie z momentem, czasem trwania i do 2 stosów;
+  - `hung` — tylko gdy strona nie odpowiada do końca obserwacji.
+  Popup: „przycięła się N× (najdłużej ok. X s)" albo „ZAWIESIŁA SIĘ … i nie
+  odpowiadała do końca obserwacji".
+- Stos podaje też kolumnę (`col`) — zminifikowane skrypty WP mają jedną linię.
+- Błąd diagnozy podaje krok (np. `Debugger.enable: timeout`) zamiast samego
+  „timeout". Czas „zawiesiła się po N s" liczony od wczytania strony, nie od
+  kliknięcia. Brak RAM-u po diagnozie ma powód w raporcie (`ramError`).
+- Popup: przy zawieszeniu bez stosu podpowiada „Zakończ proces" w Menedżerze
+  zadań (Shift+Esc). Opis „nie odpowiada" wskazuje „Diagnozuj (30 s)".
+
 ## v6.20 (2026-10-26)
 
 ### Naprawione

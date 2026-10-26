@@ -498,11 +498,34 @@ function siteOf(host) {
 async function startDiagnosis(url, sourceTabId) {
   let source = null;
   try { source = await chrome.tabs.get(sourceTabId); } catch (e) { /* karta mogła zniknąć */ }
-  const opts = { url: 'about:blank', active: true };
+  const opts = { url: chrome.runtime.getURL('diag.html'), active: true };
   if (source) { opts.windowId = source.windowId; opts.index = source.index + 1; }
   const tab = await chrome.tabs.create(opts);
   diagnose(url, tab);
   return tab.id;
+}
+
+// Osobny proces dla karty diagnozy (v6.21). Przeglądarka dokłada nowe karty
+// serwisu do jego istniejącego procesu — u użytkownika do procesu, który już
+// wisiał, więc diagnoza kończyła się „timeout". Zawieszonego procesu
+// rozszerzenie nie zabije (ani discard, ani zamknięcie karty, ani Page.crash),
+// ale nagłówek Origin-Agent-Cluster daje stronie proces przypisany do
+// originu, a nie do serwisu — do starego trafić nie może. Reguła DNR działa
+// tylko w tej karcie i znika po diagnozie. Start z diag.html (proces
+// rozszerzenia) zamiast about:blank, które też mogło trafić do starego procesu.
+function isolateDiagTab(tabId) {
+  return chrome.declarativeNetRequest.updateSessionRules({
+    removeRuleIds: [tabId],
+    addRules: [{
+      id: tabId,
+      priority: 1,
+      action: {
+        type: 'modifyHeaders',
+        responseHeaders: [{ header: 'Origin-Agent-Cluster', operation: 'set', value: '?1' }]
+      },
+      condition: { tabIds: [tabId], resourceTypes: ['main_frame', 'sub_frame'] }
+    }]
+  });
 }
 
 async function diagnose(url, tab) {
@@ -528,43 +551,72 @@ async function diagnose(url, tab) {
   };
   chrome.debugger.onEvent.addListener(listener);
   const send = (method, params, ms) => rejectAfter(chrome.debugger.sendCommand(target, method, params), ms || 3000);
+  // Nazwa kroku w błędzie — sam „timeout" nie mówił, co zawiodło.
+  const step = (name, promise, ms) => rejectAfter(promise, ms || 3000)
+    .catch((e) => { throw new Error(name + ': ' + e.message); });
 
   try {
     await chrome.storage.session.set({ diagLast: { state: 'running', url: result.url, startedAt } });
-    await rejectAfter(chrome.debugger.attach(target, '1.3'), 5000);
-    await send('Debugger.enable');
-    await send('Debugger.setBreakpointsActive', { active: false });
-    await send('Tracing.start', {
+    await step('debugger.attach', chrome.debugger.attach(target, '1.3'), 5000);
+    await step('Debugger.enable', chrome.debugger.sendCommand(target, 'Debugger.enable'));
+    await step('Debugger.setBreakpointsActive',
+      chrome.debugger.sendCommand(target, 'Debugger.setBreakpointsActive', { active: false }));
+    await step('Tracing.start', chrome.debugger.sendCommand(target, 'Tracing.start', {
       traceConfig: { includedCategories: ['disabled-by-default-v8.cpu_profiler'], excludedCategories: ['*'] },
       transferMode: 'ReportEvents'
-    });
+    }));
+    await step('izolacja procesu (DNR)', isolateDiagTab(tab.id));
     await chrome.tabs.update(tab.id, { url });
+    const loadedAt = Date.now();
 
-    for (let i = 0; i < DIAG_SECONDS / 2; i++) {
-      await new Promise((r) => setTimeout(r, 2000));
-      try {
-        await send('Runtime.evaluate', { expression: '1' }, 1500);
-      } catch (e) {
-        result.hung = true;
-        result.hungAfterS = Math.round((Date.now() - startedAt) / 1000);
-        break;
-      }
-    }
-    result.observedS = Math.round((Date.now() - startedAt) / 1000);
-
-    if (result.hung) {
+    // Stos jak pauza w DevTools; zaraz potem wznawiamy stronę.
+    const pauseStack = async () => {
       const paused = new Promise((r) => { pausedResolve = r; });
       await send('Debugger.pause', undefined, 2000).catch(() => {});
       const ev = await Promise.race([paused, new Promise((r) => setTimeout(() => r(null), 4000))]);
       pausedResolve = null;
-      if (ev) {
-        result.stack = ev.callFrames.slice(0, 10).map((f) => ({
-          fn: f.functionName || '(anonimowa)',
-          src: describeSource(f.url || scripts[f.location.scriptId], f.functionName),
-          line: f.location.lineNumber + 1
-        }));
-        await send('Debugger.resume').catch(() => {});
+      if (!ev) return null; // spóźniona pauza zostanie wznowiona przez listener
+      await send('Debugger.resume').catch(() => {});
+      return ev.callFrames.slice(0, 10).map((f) => ({
+        fn: f.functionName || '(anonimowa)',
+        src: describeSource(f.url || scripts[f.location.scriptId], f.functionName),
+        line: f.location.lineNumber + 1,
+        col: f.location.columnNumber + 1 // zminifikowane skrypty WP mają jedną linię
+      }));
+    };
+
+    // Co 2 s „ping" z limitem 1,5 s. Brak odpowiedzi = przycięcie (stos, potem
+    // obserwujemy dalej); zawieszenie (hung) = strona nie odpowiada do końca
+    // obserwacji. Wcześniej jedno długie zadanie > 1,5 s wyglądało jak
+    // zawieszenie (v6.21).
+    const elapsedS = () => Math.round((Date.now() - loadedAt) / 1000);
+    const freezes = [];
+    let freeze = null;
+    while (Date.now() - loadedAt < DIAG_SECONDS * 1000) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const responds = await send('Runtime.evaluate', { expression: '1' }, 1500).then(() => true, () => false);
+      if (responds) {
+        if (freeze) { freeze.durationS = elapsedS() - freeze.atS; freeze = null; }
+        continue;
       }
+      if (!freeze) {
+        freeze = { atS: elapsedS(), durationS: null, stacks: [] };
+        if (freezes.length < 10) freezes.push(freeze);
+      }
+      if (freeze.stacks.length < 2) {
+        const stack = await pauseStack();
+        if (stack) freeze.stacks.push(stack);
+      }
+    }
+    result.observedS = elapsedS();
+    if (freezes.length) result.freezes = freezes;
+    if (freeze) {
+      result.hung = true;
+      result.hungAfterS = freeze.atS;
+      result.stack = freeze.stacks[0];
+    } else if (freezes.length) {
+      const longest = freezes.reduce((a, b) => (b.durationS > a.durationS ? b : a));
+      result.stack = longest.stacks[0];
     }
 
     await send('Tracing.end', undefined, 5000).catch(() => {});
@@ -574,13 +626,16 @@ async function diagnose(url, tab) {
     if (!result.hung) {
       try {
         Object.assign(result, { ram: await memoryDump(target) });
-      } catch (e) { /* RAM opcjonalny */ }
+      } catch (e) {
+        result.ramError = e.message; // RAM opcjonalny — np. inna karta wisi i blokuje zrzut
+      }
     }
   } catch (e) {
     result.error = 'Diagnoza przerwana: ' + e.message;
   } finally {
     chrome.debugger.onEvent.removeListener(listener);
     await chrome.debugger.detach(target).catch(() => {});
+    await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [tab.id] }).catch(() => {});
     diagnosing.delete(tab.id);
     result.tabId = tab.id;
     await chrome.storage.session.set({ diagLast: { state: 'done', url: result.url, startedAt, result } })

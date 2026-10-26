@@ -160,7 +160,7 @@
   // Pliki dodane w v6.15. Przy aktualizacji „nadpisz istniejące pliki" łatwo
   // ich nie skopiować — wtedy sekcja pamięci nie działała, a przyciski wisiały
   // na „Mierzę…" bez żadnego komunikatu (v6.16).
-  const REQUIRED_FILES = ['memcheck.js', 'monitor.js', 'icons/icon16-red.png'];
+  const REQUIRED_FILES = ['memcheck.js', 'monitor.js', 'diag.html', 'icons/icon16-red.png'];
 
   async function missingFiles() {
     const out = [];
@@ -358,8 +358,9 @@
     if (!d) return;
     if (d.state === 'running') {
       const s = Math.round((Date.now() - d.startedAt) / 1000);
-      // Pełna diagnoza trwa < 60 s; dłuższy „trwa" = przerwana (np. restart przeglądarki).
-      if (s <= 90) {
+      // Diagnoza trwa ok. 40 s, najdłużej ok. 80 s; dłuższy „trwa" = przerwana
+      // (np. restart przeglądarki).
+      if (s <= 120) {
         addLine(els.diagInfo, `Diagnoza trwa (${s} s)… Otwórz popup ponownie za chwilę.`);
         els.diagnose.disabled = true;
       } else {
@@ -370,11 +371,22 @@
     const r = d.result || {};
     addLine(els.diagInfo, `Ostatnia diagnoza: ${r.url || d.url}`);
     if (r.error) addLine(els.diagInfo, r.error, 'r2');
+    const stackLines = () => (r.stack || []).slice(0, 3).forEach((f, i) => {
+      const at = f.src + ':' + f.line + (f.col ? ':' + f.col : '');
+      addLine(els.diagInfo, `${i ? '  wywołane z' : 'Blokuje'}: ${f.fn} — ${at}`, i ? '' : 'r2');
+    });
     if (r.hung) {
-      addLine(els.diagInfo, `Strona ZAWIESIŁA SIĘ po ${r.hungAfterS} s.`, 'r2');
-      (r.stack || []).slice(0, 3).forEach((f, i) => {
-        addLine(els.diagInfo, `${i ? '  wywołane z' : 'Blokuje'}: ${f.fn} — ${f.src}:${f.line}`, i ? '' : 'r2');
-      });
+      addLine(els.diagInfo, `Strona ZAWIESIŁA SIĘ po ${r.hungAfterS} s i nie odpowiadała do końca obserwacji.`, 'r2');
+      stackLines();
+      if (!r.stack) {
+        addLine(els.diagInfo, 'Nie udało się pobrać stosu — strona mogła trafić do procesu, który już wisiał. ' +
+          'Zakończ zawieszony proces (Shift+Esc → „Zakończ proces") i uruchom diagnozę ponownie.');
+      }
+    } else if (r.freezes && r.freezes.length) {
+      const longest = Math.max(...r.freezes.map((f) => f.durationS || 0));
+      addLine(els.diagInfo, `Strona przycięła się ${r.freezes.length}× (najdłużej ok. ${longest} s), ` +
+        `ale potem znów odpowiadała (obserwacja ${r.observedS} s).`);
+      stackLines();
     } else if (!r.error) {
       addLine(els.diagInfo, `Strona nie zawiesiła się przez ${r.observedS} s.`);
     }
