@@ -72,7 +72,24 @@ Kliknij ikonę rozszerzenia:
 - **Aktywne na tym adresie** — wyłącz tylko dla bieżącego, konkretnego adresu.
 - **Usunięte ściany** — licznik usuniętych blokad (z przyciskiem reset).
 
-Po zmianie odśwież stronę (F5), aby zaczęła obowiązywać.
+Po zmianie odśwież stronę (F5), aby zaczęła obowiązywać. Numer wersji
+rozszerzenia widać w nagłówku popupu i w podpowiedzi ikony.
+
+## Pamięć tej karty
+
+Rozszerzenie co 30 s sprawdza tanie wskaźniki zużycia pamięci na bieżącej
+karcie (rozmiar DOM, liczba ramek, obrazki, wideo, wzrost w czasie). Gdy są
+wysokie, na ikonie pojawia się znaczek **RAM** (żółty — dużo, czerwony — bardzo
+dużo). W popupie, w sekcji **Pamięć tej karty**, widać powody oraz to, ile pracy
+wykonało na tej stronie samo rozszerzenie.
+
+Przycisk **Zmierz dokładnie** odczytuje stertę JS i pamięć obiektów DOM przez
+protokół DevTools — na chwilę pojawi się pasek „rozszerzenie debuguje tę
+przeglądarkę". Działa też na stronach, gdzie rozszerzenie jest wyłączone, więc
+można porównać kartę z rozszerzeniem i bez.
+
+Pełnego RAM-u karty rozszerzenie nie zna (przeglądarka tego nie udostępnia) —
+ten pokazuje Menedżer zadań Vivaldi (**Shift+Esc**).
 
 ## Dodawanie obsługi nowej strony
 

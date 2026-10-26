@@ -25,11 +25,17 @@ się nie włącza.
 ### Pliki
 
 ```
-manifest.json        MV3, host_permissions: *://*/* (uniwersalny)
+manifest.json        MV3, host_permissions: *://*/*, permissions: scripting, storage,
+                     declarativeNetRequest, debugger (dokładny pomiar pamięci)
 content.js           rdzeń, world: MAIN, document_start, allFrames
-background.js        service worker: dynamiczna rejestracja skryptów + licznik
+background.js        service worker: dynamiczna rejestracja skryptów, licznik,
+                     znaczek „RAM", pomiar pamięci przez chrome.debugger
 bridge.js            world: ISOLATED — przekazuje postMessage → chrome.runtime
-popup.html/popup.js  UI: toggle per domena/adres + licznik usuniętych ścian
+memcheck.js          progi i powody „dużo pamięci" (wspólne: monitor + popup)
+monitor.js           world: ISOLATED, tylko główna ramka, document_idle —
+                     co 30 s tanie wskaźniki pamięci karty
+popup.html/popup.js  UI: wersja, toggle per domena/adres, sekcja „Pamięć tej
+                     karty", licznik usuniętych ścian
 rules/rules.json     7 reguł declarativeNetRequest (redirect ad-check → fake JSON, GPT)
 fake-scripts/        oryginalne skrypty Google (gpt.js 112KB, pubads_impl.js 596KB)
 icons/               16/32/48/128px PNG (neonowe zielone koło + żółty bolt)
@@ -58,9 +64,34 @@ content.js (MAIN)
 ### Wyłączanie per domena/adres
 
 `background.js` czyta `storage.local.disabledDomains[]` i `disabledUrls[]`,
-buduje `excludeMatches` i re-rejestruje content.js + bridge.js dynamicznie przez
-`chrome.scripting`. Odpalane przy `onInstalled`, `onStartup`,
+buduje `excludeMatches` i re-rejestruje content.js + bridge.js + monitor
+dynamicznie przez `chrome.scripting`. Odpalane przy `onInstalled`, `onStartup`,
 `storage.onChanged`.
+
+- Wzorce adresów używają `hostname` (bez portu — `*://host:port/` jest
+  odrzucany przez Chromium i wtedy cała rejestracja się nie udaje) oraz wariantu
+  `ścieżka?*`, bo ścieżka we wzorcu obejmuje też query.
+- Wyłączone domeny dostają też dynamiczną regułę DNR `allow` (id 1000,
+  `initiatorDomains`), żeby nie działały na nich przekierowania z `rules.json`.
+
+### Monitor pamięci karty
+
+Rozszerzenie nie zna prawdziwego RAM-u karty: `chrome.processes` jest tylko w
+kanale Dev, a `performance.memory` jest zaokrąglane i prawie się nie odświeża.
+Dlatego dwa poziomy:
+
+1. **monitor.js** (zawsze, tanio) — co 30 s: liczba elementów DOM, iframe'ów,
+   wideo, szacunek zdekodowanych obrazków, liczba żądań per host. Ocena przez
+   `memcheck.js`; do service workera idzie tylko **zmiana poziomu** → znaczek
+   „RAM" (żółty/czerwony) na ikonie dla tej karty.
+2. **„Zmierz dokładnie" w popupie** — `background.js` podłącza
+   `chrome.debugger` na ułamek sekundy: `Performance.getMetrics` +
+   `Runtime.getHeapUsage` (sterta JS, obiekty DOM/Blink, bufory, węzły,
+   nasłuchiwacze). Przeglądarka pokazuje wtedy pasek „debuguje".
+
+Popup pyta monitor przez `chrome.tabs.sendMessage`; monitor prosi wtedy
+content.js (postMessage `stats-req` → `stats`) o statystyki warstwy ciężkiej
+(liczba przebiegów, ms CPU). Ten postMessage leci tylko na żądanie z popupu.
 
 ## Kluczowe mechanizmy w content.js
 

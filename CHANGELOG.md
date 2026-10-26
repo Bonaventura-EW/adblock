@@ -1,5 +1,33 @@
 # Changelog
 
+## v6.5 (2026-10-26)
+
+### Nowe
+- **Monitor pamięci karty** (`monitor.js` + `memcheck.js`, tylko główna ramka):
+  co 30 s liczy elementy DOM, ramki, wideo, szacunek zdekodowanych obrazków i
+  żądania per host. Przy wysokich wartościach znaczek **RAM** na ikonie (żółty /
+  czerwony) dla tej karty.
+- **Popup → „Pamięć tej karty"**: poziom, powody („dlaczego"), wskaźniki,
+  praca warstwy ciężkiej rozszerzenia na tej stronie (przebiegi, ms CPU).
+  Przycisk **„Zmierz dokładnie"** — pomiar przez `chrome.debugger`
+  (sterta JS, obiekty DOM, bufory, węzły, nasłuchiwacze). Nowe uprawnienie
+  `debugger`.
+- Numer wersji w nagłówku popupu i w podpowiedzi ikony.
+
+### Poprawki
+- **Przełączniki w popupie nie reagowały na klik w sam przełącznik** — działał
+  tylko klik w tekst obok (`<input>` miał szerokość 0, a grafika nie była w
+  `<label>`).
+- **Wyłączenie adresu nie działało dla adresu z `?parametrami`** — dodany
+  wzorzec `ścieżka?*`.
+- **Wyłączenie adresu z portem psuło całą rejestrację** (Chromium odrzuca
+  `*://host:port/…`, a po wyrejestrowaniu nie rejestrowało się nic) — wzorce
+  używają `hostname`.
+- **Wyłączenie domeny nie wyłączało przekierowań GPT z `rules.json`** —
+  dynamiczna reguła DNR `allow` dla wyłączonych domen.
+
+---
+
 ## v6.4 (2026-10-26)
 
 ### Wydajność (portale WP: wp.pl, o2.pl, money.pl, pudelek.pl, sportowefakty…)

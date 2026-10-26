@@ -20,6 +20,7 @@
       border-bottom: 1px solid #38383f;
     }
     header h1 { margin: 0; font-size: 14px; font-weight: 600; }
+    header h1 .ver { font-size: 11px; font-weight: 400; color: #9aa0a6; margin-left: 4px; }
     header .host { margin-top: 4px; font-size: 12px; color: #9aa0a6; word-break: break-all; }
     .status {
       margin-top: 8px; display: inline-block; padding: 2px 8px; border-radius: 10px;
@@ -33,7 +34,7 @@
       padding: 8px 0; gap: 10px;
     }
     .row + .row { border-top: 1px solid #2c2c32; }
-    .row label { flex: 1; cursor: pointer; }
+    .row label:not(.switch) { flex: 1; cursor: pointer; }
     .row small { display: block; color: #8a9096; font-size: 11px; margin-top: 2px; }
     .switch { position: relative; width: 38px; height: 22px; flex: none; }
     .switch input { opacity: 0; width: 0; height: 0; }
@@ -62,11 +63,26 @@
     }
     button.reset:hover { background: #2c2c32; }
     .unsupported { color: #8a9096; font-size: 12px; }
+    .mem { border-top: 1px solid #38383f; }
+    .mem-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; }
+    .lvl { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .lvl.l0 { background: #18391f; color: #5cd47a; }
+    .lvl.l1 { background: #3a311f; color: #e0b866; }
+    .lvl.l2 { background: #3a1f1f; color: #f08585; }
+    .lvl.na { background: #2c2c32; color: #9aa0a6; }
+    .mem ul { margin: 8px 0 0; padding-left: 16px; }
+    .mem li { margin: 3px 0; font-size: 12px; }
+    .mem li.r1 { color: #e0b866; }
+    .mem li.r2 { color: #f08585; }
+    .mem-info { margin-top: 8px; font-size: 11px; color: #9aa0a6; line-height: 1.5; }
+    .mem-actions { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+    .mem-actions button { flex: none; white-space: nowrap; }
+    .mem-note { color: #8a9096; font-size: 10px; line-height: 1.4; }
   </style>
 </head>
 <body>
   <header>
-    <h1>Universal Adblock Spoof</h1>
+    <h1>Universal Adblock Spoof<span class="ver" id="ver"></span></h1>
     <div class="host" id="host">…</div>
     <span class="status on" id="status">aktywne na tej stronie</span>
   </header>
@@ -77,30 +93,46 @@
         Aktywne na tej domenie
         <small id="domainHost">—</small>
       </label>
-      <span class="switch">
+      <label class="switch">
         <input type="checkbox" id="domainToggle" checked>
         <span class="slider"></span>
-      </span>
+      </label>
     </div>
     <div class="row">
       <label for="urlToggle">
         Aktywne na tym adresie
         <small>tylko ta konkretna strona</small>
       </label>
-      <span class="switch">
+      <label class="switch">
         <input type="checkbox" id="urlToggle" checked>
         <span class="slider"></span>
-      </span>
+      </label>
     </div>
   </section>
 
   <div class="hint" id="hint">Odśwież stronę (F5), aby zastosować zmianę.</div>
+
+  <section class="mem" id="mem">
+    <div class="mem-head">
+      <span>Pamięć tej karty</span>
+      <span class="lvl na" id="memLevel">…</span>
+    </div>
+    <ul id="memReasons"></ul>
+    <div class="mem-info" id="memInfo"></div>
+    <div class="mem-actions">
+      <button class="reset" id="measure">Zmierz dokładnie</button>
+      <span class="mem-note">Na chwilę pojawi się pasek „debuguje tę przeglądarkę".</span>
+    </div>
+    <div class="mem-info" id="memPrecise"></div>
+    <div class="mem-note" style="margin-top:8px">Pełny RAM karty: Menedżer zadań Vivaldi (Shift+Esc).</div>
+  </section>
 
   <footer>
     <span>Usunięte ściany: <strong id="count">0</strong></span>
     <button class="reset" id="reset">Reset licznika</button>
   </footer>
 
+  <script src="memcheck.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.4
+// Universal Adblock Spoof v6.5
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -21,6 +21,19 @@
   function reportRemoved() {
     try { window.postMessage({ source: 'adblock-spoof', type: 'removed' }, '*'); } catch (e) {}
   }
+
+  // Statystyki warstwy ciężkiej dla monitora pamięci (monitor.js pyta o nie
+  // tylko po otwarciu popupu).
+  var heavyStats = { runs: 0, ms: 0 };
+  window.addEventListener('message', function (event) {
+    if (event.source !== window) return;
+    var d = event.data;
+    if (!d || d.source !== 'adblock-spoof' || d.type !== 'stats-req') return;
+    try {
+      window.postMessage({ source: 'adblock-spoof', type: 'stats', wall: wallDetected,
+        runs: heavyStats.runs, ms: heavyStats.ms }, '*');
+    } catch (e) {}
+  }, false);
 
   // ══════════════════════════════════════════════════════════════════════════
   // WARSTWA LEKKA — bezpieczna, zawsze aktywna
@@ -736,12 +749,15 @@
 
   function runHeavy() {
     if (!wallDetected) return;
+    var t0 = performance.now();
     injectBaseCSS();
     applyWPScreeningCSS();
     cleanGeneric();
     removeAdblockPopups();
     revealArticleContent();
     installGoogletag();
+    heavyStats.runs++;
+    heavyStats.ms += performance.now() - t0;
   }
 
   // ══════════════════════════════════════════════════════════════════════════
