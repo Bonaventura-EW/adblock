@@ -25,11 +25,16 @@ Repozytorium: `Bonaventura-EW/adblock`, branch główny: `main`.
 - Nową pracę ZAWSZE zaczynaj od aktualnego `origin/main` (`git fetch origin main`
   najpierw!). W przeszłości równoległe sesje tworzyły gałęzie od przestarzałych
   baz → zdublowane numery wersji (dwa różne „v6.4"–„v6.6") i rozjazd historii.
-- **PYTAJ PRZED WYPCHNIĘCIEM NA `main`.** Po skończonych zmianach (kod
-  zwalidowany, CHANGELOG uzupełniony, ZIP wystawiony) zrób commit lokalnie,
-  a potem ZAPYTAJ użytkownika, czy dodać to do `main`. Push dopiero po jego
-  zgodzie — decyzję o tym, co trafia do głównej linii, podejmuje użytkownik.
-  Dotyczy też sytuacji, gdy zmiana wygląda na oczywistą lub pilną.
+- **ZAWSZE WSZYSTKO WYPYCHAJ NA `main`** (decyzja użytkownika, zastępuje
+  wcześniejsze „pytaj przed pushem"). Każda skończona zmiana (zwalidowana,
+  z wpisem w CHANGELOG) trafia na `main` bez dodatkowego pytania. Jeśli sesja
+  dostała własną gałąź roboczą, scal ją do `main` (lub zrób commit wprost na
+  `main` od aktualnego `origin/main`) i wypchnij `main`. Nie zostawiaj pracy
+  tylko na gałęzi pobocznej.
+- **Gotowy plik rozszerzenia (ZIP) buduj WYŁĄCZNIE z `main`** — po wypchnięciu,
+  z aktualnego stanu `origin/main` (`npm run build`). Nigdy nie dawaj
+  użytkownikowi ZIP-a zbudowanego z gałęzi pobocznej: tak powstały „v6.4–v6.8"
+  z innym kodem niż `main` i użytkownik tracił poprawki z głównej linii.
 - Po scaleniu do `main` usuń gałąź roboczą. Nie zostawiaj osieroconych gałęzi.
 - Zainstalowaną u użytkownika wersję potwierdza `window.__adblockSpoof` w konsoli
   lub badge wersji w popupie.
@@ -273,15 +278,16 @@ Po każdej zmianie w kodzie rozszerzenia, ZAWSZE w tej kolejności:
    `## vX.Y (RRRR-MM-DD)`, sekcje Nowe/Poprawki/itd.) — opis CO i DLACZEGO,
    żeby zachować pełną historię na przyszłość.
 3. `npm run lint` — walidacja.
-4. **`npm run build`** — buduje `adblock-vivaldi-v<wersja>.zip` (skrypt
-   `scripts/build-zip.mjs`; czyta wersję z `manifest.json`, pakuje tylko pliki
-   rozszerzenia, usuwa stare paczki `adblock-vivaldi-*.zip`).
-5. **Wystaw gotowy ZIP użytkownikowi do pobrania** (narzędzie wysyłki plików),
-   żeby mógł go od razu zainstalować w przeglądarce.
-6. **Commit lokalnie.**
-7. **ZAPYTAJ użytkownika, czy dodać zmiany do `main`** — i dopiero po jego
-   potwierdzeniu zrób `git push`. Nie wypychaj na `main` z własnej inicjatywy
-   (patrz „Zasady pracy z gałęziami" wyżej).
+4. **`npm run build`** — na `main` (zaktualizowanym z `origin/main`) buduje
+   `adblock-vivaldi-v<wersja>.zip` (skrypt `scripts/build-zip.mjs`; czyta wersję
+   z `manifest.json`, pakuje tylko pliki rozszerzenia, usuwa stare paczki
+   `adblock-vivaldi-*.zip`).
+5. **Commit na `main` i `git push origin main`** — bez pytania (patrz „Zasady
+   pracy z gałęziami" wyżej). Gałąź robocza sesji → scal do `main`, wypchnij,
+   usuń gałąź.
+6. **Wystaw użytkownikowi ZIP z `main`** (narzędzie wysyłki plików) — dopiero
+   po udanym pushu, i tylko plik zbudowany z tego samego stanu, który jest na
+   `origin/main`.
 
 ## Jak dodać obsługę nowej strony
 
