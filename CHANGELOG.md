@@ -1,5 +1,30 @@
 # Changelog
 
+## v6.22 (2026-10-26)
+
+### Naprawione
+- **Nieskończona pętla przy odsłanianiu głównego zdjęcia → zawieszona karta i
+  RAM rosnący bez końca.** Zgłoszenie: tylko karty z wiadomosci.wp.pl, ok.
+  2 GB w minutę, „nie odpowiada".
+  - Mechanizm: `installMediaReveal()` trzyma MutationObserver, który odsłania
+    zdjęcie za każdym razem, gdy ktoś ustawi mu `display:none`. Jeśli strona
+    (albo inne rozszerzenie) chowa je z powrotem WŁASNYM MutationObserverem,
+    oba obserwatory odpalają się na zmianę w nieskończoność w jednym
+    zadaniu (mikrozadania). Wątek strony nie wraca do pętli zdarzeń, a
+    przeglądarka nie sprząta obiektów z kolejnych okrążeń, więc pamięć rośnie
+    bez końca.
+  - Odtworzone na stronie testowej (zdjęcie pilnowane obserwatorem): v6.21 →
+    karta nie odpowiada, pamięć procesu rośnie; bez rozszerzenia — spokój.
+    Na prawdziwym artykule w Chromium bez Vivaldi pętla się nie pojawiła
+    (WP chowa zdjęcie tylko w niektórych warunkach), stąd poprawka po
+    mechanizmie.
+  - Bezpiecznik `mayReveal()`: najwyżej 5 odsłonięć jednego zdjęcia w 10 s,
+    potem rozszerzenie odpuszcza to zdjęcie na stałe (strona wygrywa, karta
+    działa). Zwykłe „schowaj ponownie" (kilka razy, co kilka sekund) nadal
+    jest odsłaniane — sprawdzone.
+  - Licznik odpuszczonych zdjęć: `revealGaveUp` w statystykach warstwy ciężkiej
+    (`sample.heavy` w raporcie).
+
 ## v6.21 (2026-10-26)
 
 ### Naprawione

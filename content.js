@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.21
+// Universal Adblock Spoof v6.22
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -15,8 +15,8 @@
   'use strict';
 
   // Znacznik wersji — do potwierdzenia w konsoli, że ten kod jest aktywny:
-  //   window.__adblockSpoof   →   "6.21"
-  try { window.__adblockSpoof = '6.21'; } catch (e) {}
+  //   window.__adblockSpoof   →   "6.22"
+  try { window.__adblockSpoof = '6.22'; } catch (e) {}
 
   // Czy wykryto ścianę adblock. Dopóki false — warstwa ciężka śpi.
   var wallDetected = false;
@@ -28,14 +28,14 @@
 
   // Statystyki warstwy ciężkiej dla monitora pamięci (monitor.js pyta o nie
   // tylko po otwarciu popupu).
-  var heavyStats = { runs: 0, ms: 0 };
+  var heavyStats = { runs: 0, ms: 0, revealGaveUp: 0 };
   window.addEventListener('message', function (event) {
     if (event.source !== window) return;
     var d = event.data;
     if (!d || d.source !== 'adblock-spoof' || d.type !== 'stats-req') return;
     try {
       window.postMessage({ source: 'adblock-spoof', type: 'stats', wall: wallDetected,
-        runs: heavyStats.runs, ms: heavyStats.ms }, '*');
+        runs: heavyStats.runs, ms: heavyStats.ms, revealGaveUp: heavyStats.revealGaveUp }, '*');
     } catch (e) {}
   }, false);
 
@@ -774,12 +774,39 @@
   var MEDIA_CONTAINER = '[data-mainmedia-photo], .article-img-placeholder, article figure, main figure';
   var MEDIA_IMG = '[data-mainmedia-photo] img, .article-img-placeholder img, article figure img, main figure img';
 
+  // Bezpiecznik odsłaniania (v6.22) — NIE USUWAĆ. Strona, która chowa zdjęcie
+  // z powrotem WŁASNYM MutationObserverem, robiła z naszym obserwatorem
+  // nieskończoną pętlę mikrozadań (my odsłaniamy → ona chowa → my odsłaniamy…):
+  // karta „nie odpowiada", a RAM rośnie bez końca, bo w nieprzerwanym zadaniu
+  // przeglądarka nie sprząta (wiadomosci.wp.pl: 2 GB w minutę). Najwyżej
+  // MAX_REVEALS odsłonięć jednego zdjęcia w REVEAL_WINDOW_MS — potem odpuszczamy
+  // to zdjęcie na stałe: strona wygrywa, karta działa.
+  var MAX_REVEALS = 5;
+  var REVEAL_WINDOW_MS = 10000;
+  var _reveals = new WeakMap();
+  function mayReveal(img) {
+    var now = Date.now();
+    var r = _reveals.get(img);
+    if (r && r.gaveUp) return false;
+    if (!r || now - r.t > REVEAL_WINDOW_MS) {
+      r = { n: 0, t: now, gaveUp: false };
+      _reveals.set(img, r);
+    }
+    if (++r.n > MAX_REVEALS) {
+      r.gaveUp = true;
+      heavyStats.revealGaveUp++;
+      return false;
+    }
+    return true;
+  }
+
   function revealOneImg(img) {
     try {
       if (!img || img.tagName !== 'IMG' || !img.style) return;
       if (img.style.display !== 'none' && img.style.visibility !== 'hidden') return;
       if (!img.complete || !(img.naturalWidth > 0)) return; // jeszcze nie wczytane → zostaw loaderowi
       if (!img.closest || !img.closest(MEDIA_CONTAINER)) return;
+      if (!mayReveal(img)) return;
       if (img.style.display === 'none') img.style.setProperty('display', 'block', 'important');
       if (img.style.visibility === 'hidden') img.style.setProperty('visibility', 'visible', 'important');
     } catch (e) {}

@@ -283,6 +283,13 @@ Trzy metody (wystarczy jedna):
   NIGDY pod całe `body` z `attributes:true` (przyczyna wycieku RAM, patrz niżej).
   Odkrywamy tylko **załadowane** zdjęcia (`complete && naturalWidth>0`);
   niezaładowane lazy-obrazki zostawiamy loaderowi, nie ruszamy reklam.
+  **Bezpiecznik odsłaniania (v6.22) — NIE USUWAĆ:** `mayReveal()` — najwyżej 5
+  odsłonięć jednego zdjęcia w 10 s, potem zdjęcie odpuszczone na stałe
+  (`heavyStats.revealGaveUp`). Strona pilnująca schowanego zdjęcia własnym
+  MutationObserverem robiła z naszym obserwatorem nieskończoną pętlę
+  mikrozadań → karta „nie odpowiada", RAM +2 GB/min (wiadomosci.wp.pl).
+  Zasada ogólna: każdy obserwator, który ZMIENIA to, co sam obserwuje, musi
+  mieć limit liczony w zdarzeniach, nie tylko w czasie.
 - `removeMarkerOverlays()` (v6.11) — ściany toolkitspro (np. fxmag.pl) mają klasy
   haszowane per-dzień; stała jest tylko ikona `adblock_new_icon`. Od niej
   wspinamy się do nakładki `position:fixed` z `z-index≥1000` i usuwamy ją całą.
@@ -357,10 +364,11 @@ poprzedniej metody.
   wtyczka zmierzona jako czysta (v6.11: heap i RSS płaskie w 4 scenariuszach
   na artykułach wiadomosci.wp.pl, w tym z uBlock Origin Lite). Zalecany
   bloker: uBlock Origin. Przy zgłoszeniu „wtyczka zżera RAM" najpierw pytaj
-  o listę innych rozszerzeń. Możliwy mechanizm (niepotwierdzony z AdBlockiem):
-  nieskończona pętla czyszcząca kontener przy ochronie DOM — naprawiona
-  bezpiecznikiem w v6.18. Zawieszoną kartę popup pokazuje teraz jako
-  „nie odpowiada".
+  o listę innych rozszerzeń. Możliwe mechanizmy (niepotwierdzone z AdBlockiem):
+  nieskończona pętla czyszcząca kontener przy ochronie DOM — bezpiecznik w
+  v6.18; nieskończona pętla odsłaniania zdjęcia (my odsłaniamy, strona chowa)
+  — bezpiecznik w v6.22 (zgłoszenie: tylko wiadomosci.wp.pl, 2 GB/min).
+  Zawieszoną kartę popup pokazuje jako „nie odpowiada".
 - **Paywalle serwerowe** (np. Onet po X akapitach) — rozszerzenie ich NIE obchodzi.
   Jeśli tekst nie istnieje w HTML, nie ma czego odkrywać.
 - **Ściana w playerze wideo WP** („Wyłącz AdBlocka, aby obejrzeć materiał") —
