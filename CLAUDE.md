@@ -153,6 +153,12 @@ Zwykłe API nie dają RAM-u karty: `chrome.processes` jest tylko w kanale Dev, a
    aktywnego okna; `tabs.onActivated` + 3 s mierzy kartę, jeśli jej pomiar ma
    > 5 min; limit 1 auto-pomiar/min; wyłączany `storage.local.autoRam = false`.
 
+**Zawieszona karta (v6.18):** pomiar zaczyna od `Runtime.getHeapUsage` z
+limitem 2 s (`RENDERER_PROBE_MS`); brak odpowiedzi → `rendererBusy` (wątek
+strony zablokowany — wtedy nie odpowiada też monitor ani zrzut pamięci).
+Stan karty dostaje `busy: true` → ikona czerwona ze znakiem „!", popup:
+poziom „nie odpowiada".
+
 **Odporność (v6.16) — NIE COFAĆ:** monitor rejestrowany OSOBNO od
 content.js/bridge.js (`registerContentScripts` jest atomowe — brak
 `monitor.js` blokował cały spoof); `importScripts('memcheck.js')` w `try`
@@ -201,6 +207,10 @@ przypadki „dużo RAM-u".
   pozostałe elementy bez zmian.
 - **DOM protection**: `Node.removeChild` / `Element.remove` / `innerHTML` setter
   w trybie pass-through dopóki `!wallDetected`; aktywna ochrona `.wp-content-text-raw`.
+  **Bezpiecznik pętli (v6.18) — NIE USUWAĆ:** najwyżej 3 odmowy dla tego samego
+  węzła w obrębie jednego zadania (`mayRefuse`), potem usunięcie przechodzi.
+  Bez tego pętle typu `while (el.firstChild) el.removeChild(el.firstChild)`
+  kręciły się w nieskończoność → zawieszona karta, rosnący RAM.
 - **Script killer**: neutralizuje inline `<script>` zawierające
   `removeContentBecauseOfAdBlock` lub `AdblockDetector`.
 
@@ -308,7 +318,10 @@ poprzedniej metody.
   wtyczka zmierzona jako czysta (v6.11: heap i RSS płaskie w 4 scenariuszach
   na artykułach wiadomosci.wp.pl, w tym z uBlock Origin Lite). Zalecany
   bloker: uBlock Origin. Przy zgłoszeniu „wtyczka zżera RAM" najpierw pytaj
-  o listę innych rozszerzeń.
+  o listę innych rozszerzeń. Możliwy mechanizm (niepotwierdzony z AdBlockiem):
+  nieskończona pętla czyszcząca kontener przy ochronie DOM — naprawiona
+  bezpiecznikiem w v6.18. Zawieszoną kartę popup pokazuje teraz jako
+  „nie odpowiada".
 - **Paywalle serwerowe** (np. Onet po X akapitach) — rozszerzenie ich NIE obchodzi.
   Jeśli tekst nie istnieje w HTML, nie ma czego odkrywać.
 - **Ściana w playerze wideo WP** („Wyłącz AdBlocka, aby obejrzeć materiał") —

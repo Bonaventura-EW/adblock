@@ -1,5 +1,31 @@
 # Changelog
 
+## v6.18 (2026-10-26)
+
+### Naprawione
+- **Ochrona DOM mogła zawiesić stronę** — prawdopodobna przyczyna „karta WP
+  zjada RAM". Zgłoszenie: na wiadomosci.wp.pl ani monitor, ani pomiar nie
+  dostawały odpowiedzi, strona „ładowała się" bez końca. Odtworzone: przy
+  zablokowanym wątku strony dokładnie tak to wygląda. Przyczyna w kodzie:
+  na portalach WP ochrona `.wp-content-text-raw` jest zawsze aktywna i po
+  cichu odmawiała usunięcia węzła — typowe pętle czyszczące kontener
+  (`while (el.firstChild) el.removeChild(el.firstChild)`, `…remove()`,
+  `while (el.innerHTML) el.innerHTML = ''`) kręciły się wtedy w
+  nieskończoność (test: 200 000 obrotów do sztucznego limitu; bez
+  rozszerzenia 1–2). Wystarczy, że skrypt strony albo innego rozszerzenia
+  wyczyści kontener z tekstem artykułu.
+  - Bezpiecznik: dla tego samego węzła najwyżej 3 odmowy w obrębie jednego
+    zadania, potem usunięcie przechodzi i pętla się kończy (test: 4–5
+    obrotów, 0 ms). Pojedyncza próba usunięcia tekstu artykułu nadal jest
+    blokowana.
+- **Zawieszona karta rozpoznawana od razu.** Pomiar zaczyna od komendy z
+  limitem 2 s; brak odpowiedzi = „Strona nie odpowiada — jej wątek jest
+  zablokowany" (wcześniej 10 s i ogólny błąd). Popup pokazuje poziom
+  „nie odpowiada" z wyjaśnieniem; brak odpowiedzi monitora jest opisany
+  wprost zamiast „odśwież stronę (F5)". Przy auto-pomiarze ikona robi się
+  czerwona ze znakiem „!".
+- Popup: błąd pomiaru pokazywany raz (wcześniej dwa razy).
+
 ## v6.17 (2026-10-26)
 
 ### Naprawione (przegląd całości po v6.16)

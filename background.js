@@ -190,7 +190,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 // ── Pamięć karty ────────────────────────────────────────────────────────────
 // Stan per karta w storage.session ('tm:<tabId>'): monitorLevel z monitor.js
-// (0 ok, 1 dużo, 2 bardzo dużo) oraz ramMB/ramT z ostatniego pomiaru RAM.
+// (0 ok, 1 dużo, 2 bardzo dużo), ramMB/ramT z ostatniego pomiaru RAM oraz
+// busy — strona nie odpowiedziała na pomiar (zablokowany wątek).
 // Ikona jest czerwona, gdy którykolwiek poziom ≥ 1; znaczek pokazuje MB (gdy
 // RAM przekracza próg) albo „RAM" (gdy alarmują tylko tanie wskaźniki).
 const BADGE_COLORS = { 1: '#c6a15c', 2: '#d93025' };
@@ -226,9 +227,11 @@ function updateTabState(tabId, patch) {
 function renderTabIndicator(tabId, st) {
   const mem = self.AdblockSpoofMem;
   const ramLevel = st.ramMB != null && mem ? mem.levelOf('tabMB', st.ramMB) : 0;
-  const level = Math.max(st.monitorLevel || 0, ramLevel);
+  // Zawieszona karta (busy) to najgorszy przypadek — zawsze czerwono, znak „!".
+  const level = Math.max(st.monitorLevel || 0, ramLevel, st.busy ? 2 : 0);
   let text = '';
-  if (ramLevel > 0) text = st.ramMB >= 1000 ? (st.ramMB / 1024).toFixed(1) + 'G' : String(st.ramMB);
+  if (st.busy) text = '!';
+  else if (ramLevel > 0) text = st.ramMB >= 1000 ? (st.ramMB / 1024).toFixed(1) + 'G' : String(st.ramMB);
   else if (level > 0) text = 'RAM';
   chrome.action.setIcon({ tabId, path: level > 0 ? ICONS.red : ICONS.normal }).catch(() => {});
   chrome.action.setBadgeText({ tabId, text }).catch(() => {});
@@ -325,6 +328,18 @@ function measureTab(tabId) {
   return Promise.race([measureTabNow(tabId), timeout]).finally(() => clearTimeout(timer));
 }
 
+// Strona z zablokowanym wątkiem (zawieszona albo mieląca w kółko) nie odpowie
+// na żadną komendę DevTools — pierwsza komenda ma krótki limit i od razu
+// zgłaszamy „strona nie odpowiada" (v6.18), zamiast czekać 10 s.
+const RENDERER_PROBE_MS = 2000;
+
+function rejectAfter(promise, ms) {
+  let timer;
+  return Promise.race([promise, new Promise((resolve, reject) => {
+    timer = setTimeout(() => reject(new Error('timeout')), ms);
+  })]).finally(() => clearTimeout(timer));
+}
+
 // Dokładny pomiar przez protokół DevTools. Na czas pomiaru (i kilka sekund
 // po nim) przeglądarka pokazuje pasek „rozszerzenie debuguje tę przeglądarkę".
 async function measureTabNow(tabId) {
@@ -335,9 +350,16 @@ async function measureTabNow(tabId) {
     return { error: 'Nie udało się podłączyć debuggera (otwarte DevTools?): ' + e.message };
   }
   try {
+    let heap;
+    try {
+      heap = await rejectAfter(chrome.debugger.sendCommand(target, 'Runtime.getHeapUsage'), RENDERER_PROBE_MS);
+    } catch (e) {
+      if (e.message !== 'timeout') throw e;
+      return { t: Date.now(), rendererBusy: true,
+        error: 'Strona nie odpowiada — jej wątek jest zablokowany (zawieszona albo mieli w kółko).' };
+    }
     await chrome.debugger.sendCommand(target, 'Performance.enable');
     const { metrics } = await chrome.debugger.sendCommand(target, 'Performance.getMetrics');
-    const heap = await chrome.debugger.sendCommand(target, 'Runtime.getHeapUsage');
     const m = {};
     metrics.forEach((x) => { m[x.name] = x.value; });
     const result = {
@@ -377,7 +399,8 @@ function measureTabCached(tabId, maxAgeMs) {
   const p = measureTab(tabId).then((res) => {
     pendingMeasure.delete(tabId);
     if (!res.error) lastMeasure.set(tabId, res);
-    if (res.tabMB != null) updateTabState(tabId, { ramMB: res.tabMB, ramT: res.t });
+    if (res.rendererBusy) updateTabState(tabId, { busy: true, ramT: res.t });
+    else if (res.tabMB != null) updateTabState(tabId, { busy: false, ramMB: res.tabMB, ramT: res.t });
     return res;
   });
   pendingMeasure.set(tabId, p);

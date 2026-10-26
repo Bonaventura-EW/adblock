@@ -199,8 +199,9 @@
 
   function renderMemoryUnsafe(precise) {
     const ev = AdblockSpoofMem.evaluate(memSample, memFirst, precise);
-    const known = memSample || (precise && !precise.error);
-    els.memLevel.textContent = known ? LEVEL_LABELS[ev.level] : 'brak danych';
+    const busy = !!(precise && precise.rendererBusy);
+    const known = memSample || busy || (precise && !precise.error);
+    els.memLevel.textContent = busy ? 'nie odpowiada' : known ? LEVEL_LABELS[ev.level] : 'brak danych';
     els.memLevel.className = 'lvl ' + (known ? 'l' + ev.level : 'na');
 
     els.memReasons.textContent = '';
@@ -211,11 +212,17 @@
     const s = memSample;
     if (!s) {
       const active = els.domainToggle.checked && els.urlToggle.checked;
-      addLine(els.memInfo, active
-        ? 'Brak danych z monitora — odśwież stronę (F5).'
-        : 'Monitor nie działa, gdy rozszerzenie jest tu wyłączone. Użyj „Zmierz dokładnie".');
-      if (active && sampleError && !/Receiving end does not exist|Could not establish connection/.test(sampleError)) {
-        addLine(els.memInfo, sampleError, 'r2');
+      // Limit czasu monitora = wątek strony zablokowany (strona nie odbiera wiadomości).
+      const silent = /nie odpowiada/.test(sampleError || '');
+      if (!active) {
+        addLine(els.memInfo, 'Monitor nie działa, gdy rozszerzenie jest tu wyłączone. Użyj „Zmierz dokładnie".');
+      } else if (silent) {
+        addLine(els.memInfo, 'Strona nie odpowiedziała monitorowi w 3 s — jej wątek jest zablokowany.', 'r2');
+      } else {
+        addLine(els.memInfo, 'Brak danych z monitora — odśwież stronę (F5).');
+        if (sampleError && !/Receiving end does not exist|Could not establish connection/.test(sampleError)) {
+          addLine(els.memInfo, sampleError, 'r2');
+        }
       }
     } else {
       addLine(els.memInfo, `Elementy DOM: ${s.elements} · ramki: ${s.iframes} · wideo: ${s.videos}`);
@@ -229,9 +236,7 @@
     }
 
     els.memPrecise.textContent = '';
-    if (precise && precise.error) {
-      addLine(els.memPrecise, precise.error, 'r2');
-    } else if (precise) {
+    if (precise && !precise.error) {
       addLine(els.memPrecise, `Sterta JS: ${precise.jsHeapMB} MB · obiekty DOM: ${precise.domHeapMB} MB · bufory: ${precise.buffersMB} MB`);
       addLine(els.memPrecise, `Węzły: ${precise.nodes} · dokumenty: ${precise.documents} · ramki: ${precise.frames} · nasłuchiwacze: ${precise.listeners}`);
       addLine(els.memPrecise, 'Sterta i węzły dotyczą procesu strony głównej.');
@@ -286,7 +291,8 @@
     }
     lastPrecise = lastPrecise || { error: 'Pomiar nieudany (brak odpowiedzi service workera).' };
     try {
-      await fetchSample();
+      // Zawieszona strona nie odpowie też monitorowi — nie czekamy drugi raz.
+      if (!lastPrecise.rendererBusy) await fetchSample();
       renderMemory(lastPrecise);
     } finally {
       els.measure.disabled = false;

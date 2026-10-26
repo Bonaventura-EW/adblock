@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.17
+// Universal Adblock Spoof v6.18
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -15,8 +15,8 @@
   'use strict';
 
   // Znacznik wersji — do potwierdzenia w konsoli, że ten kod jest aktywny:
-  //   window.__adblockSpoof   →   "6.17"
-  try { window.__adblockSpoof = '6.17'; } catch (e) {}
+  //   window.__adblockSpoof   →   "6.18"
+  try { window.__adblockSpoof = '6.18'; } catch (e) {}
 
   // Czy wykryto ścianę adblock. Dopóki false — warstwa ciężka śpi.
   var wallDetected = false;
@@ -452,15 +452,35 @@
       return false;
     }
 
+    // Bezpiecznik pętli (v6.18) — NIE USUWAĆ. Kod czyszczący kontener w pętli
+    // („while (el.firstChild) el.removeChild(el.firstChild)", „…remove()",
+    // „while (el.innerHTML) el.innerHTML = ''") przy cichej odmowie kręcił się
+    // w nieskończoność: wątek strony stawał, a RAM rósł. Odmawiamy więc
+    // najwyżej MAX_REFUSALS razy dla tego samego węzła w obrębie jednego
+    // zadania; potem przepuszczamy usunięcie i pętla się kończy. Pojedyncza
+    // próba usunięcia tekstu artykułu nadal jest blokowana.
+    var MAX_REFUSALS = 3;
+    var _setTimeout = window.setTimeout.bind(window);
+    var refusals = null; // Map węzeł → liczba odmów w bieżącym zadaniu
+    function mayRefuse(node) {
+      if (!refusals) {
+        refusals = new Map();
+        _setTimeout(function () { refusals = null; }, 0);
+      }
+      var n = (refusals.get(node) || 0) + 1;
+      refusals.set(node, n);
+      return n <= MAX_REFUSALS;
+    }
+
     var _removeChild = Node.prototype.removeChild;
     Node.prototype.removeChild = function (child) {
-      if (isProtected(child)) return child;
+      if (isProtected(child) && mayRefuse(child)) return child;
       return _removeChild.apply(this, arguments);
     };
 
     var _remove = Element.prototype.remove;
     Element.prototype.remove = function () {
-      if (isProtected(this)) return;
+      if (isProtected(this) && mayRefuse(this)) return;
       return _remove.apply(this, arguments);
     };
 
@@ -470,7 +490,7 @@
         get: _innerHTMLDesc.get,
         set: function (val) {
           if (wallDetected && (val === '' || val === null) &&
-              this.querySelector && this.querySelector('.wp-content-text-raw')) {
+              this.querySelector && this.querySelector('.wp-content-text-raw') && mayRefuse(this)) {
             return;
           }
           return _innerHTMLDesc.set.call(this, val);
