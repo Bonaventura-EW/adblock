@@ -159,8 +159,10 @@ strony zablokowany — wtedy nie odpowiada też monitor ani zrzut pamięci).
 Stan karty dostaje `busy: true` → ikona czerwona ze znakiem „!", popup:
 poziom „nie odpowiada".
 
-**Diagnoza (v6.19)** — popup „Diagnozuj (30 s)" → `diagnose(url)` w
-`background.js`: nowa karta `about:blank`, `chrome.debugger.attach`,
+**Diagnoza (v6.19)** — popup „Diagnozuj (30 s)" → `startDiagnosis(url, tabId)`
+w `background.js`: nowa karta `about:blank` W TYM SAMYM OKNIE obok badanej
+(`windowId` + `index` — bez tego w Vivaldi karta się nie otwierała, v6.20),
+odpowiedź do popupu dopiero po utworzeniu karty; `chrome.debugger.attach`,
 `Debugger.enable` + `setBreakpointsActive(false)` (obce pauzy wznawiamy),
 `Tracing.start` z `disabled-by-default-v8.cpu_profiler` (domena `Profiler`
 jest NIEDOSTĘPNA dla rozszerzeń), potem nawigacja do adresu. Co 2 s
@@ -171,6 +173,14 @@ serwisu albo tego rozszerzenia (`summarizeCpu`). Wynik w `storage.session`
 `diagLast` (popup zamyka się przy otwarciu nowej karty) i w raporcie
 (`diagnosis`). Na karcie, która już wisi, `Debugger.enable` nie odpowiada —
 stąd nowa karta.
+
+**Przeładowanie (v6.20):** popup porównuje `version` z `manifest.json` na dysku
+(fetch) z `chrome.runtime.getManifest().version`; różnica = pliki podmienione
+bez „Odśwież" → baner z przyciskiem otwierającym `chrome://extensions/?id=…`
+(NIE `chrome.runtime.reload()` — w testach rozszerzenie rozpakowane znikało po
+nim zamiast się przeładować). Zrzut pamięci
+(`Tracing.requestMemoryDump`) ma limit 3 s — jest globalny, więc jedna
+zawieszona karta blokowała pomiar wszystkich.
 
 **Odporność (v6.16) — NIE COFAĆ:** monitor rejestrowany OSOBNO od
 content.js/bridge.js (`registerContentScripts` jest atomowe — brak

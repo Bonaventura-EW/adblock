@@ -1,5 +1,36 @@
 # Changelog
 
+## v6.20 (2026-10-26)
+
+### Naprawione
+- **„Diagnozuj (30 s)" nie otwierał karty w Vivaldi** — popup pisał „ruszyła",
+  ale żadna karta nie powstała. Karta była tworzona bez `windowId`
+  („ostatnio aktywne okno" — w Vivaldi bywa nim popup rozszerzenia), a
+  `chrome.tabs.create` stało poza obsługą błędów, więc porażka ginęła po
+  cichu, a `diagLast` zostawał na zawsze w stanie „trwa".
+  - Karta diagnozy powstaje w tym samym oknie, tuż obok badanej karty.
+  - Popup czeka na potwierdzenie utworzenia karty; błąd pokazuje na czerwono
+    i zapisuje w raporcie.
+  - Stan „trwa" starszy niż 90 s jest traktowany jako przerwany — przycisk
+    znów aktywny.
+- **Nowy popup ze starym workerem.** Prawdziwa przyczyna „karta się nie
+  otworzyła": popup czyta pliki z dysku przy każdym otwarciu, a service worker,
+  skrypty stron i wersja z manifestu zostają stare do „Odśwież" w
+  vivaldi://extensions (zrzuty: badge „v6.18" przy przycisku z v6.19). Stary
+  worker nie znał diagnozy, a popup v6.19 nie sprawdzał odpowiedzi. Teraz popup
+  porównuje wersję manifestu na dysku z uruchomioną i pokazuje baner z
+  przyciskiem **„Otwórz stronę rozszerzeń"** (tam „Odśwież"). Celowo bez
+  `chrome.runtime.reload()` — w testach rozszerzenie rozpakowane znikało po nim
+  zamiast wstać na nowo.
+- **Zawieszona karta w tle blokowała pomiar RAM wszystkich kart.** Zrzut pamięci
+  jest globalny i czekał na zawieszony proces aż do limitu 10 s (odtworzone:
+  zdrowa karta 0,2 s → 10 s, gdy inna wisi; stąd „Mierzę…" na Onecie przy
+  otwartej karcie WP). `Tracing.requestMemoryDump` ma własny limit 3 s; pomiar
+  wraca wtedy ze stertą JS i komunikatem „inna karta prawdopodobnie nie
+  odpowiada".
+- **„w normie" bez RAM-u.** Poziom „w normie" pokazywany dopiero po pomiarze
+  RAM; w trakcie „mierzę…", a gdy RAM się nie uda — „w normie (bez RAM)".
+
 ## v6.19 (2026-10-26)
 
 ### Nowe

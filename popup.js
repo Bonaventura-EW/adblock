@@ -29,8 +29,34 @@
     saveReport: document.getElementById('saveReport'),
     reportNote: document.getElementById('reportNote'),
     diagnose: document.getElementById('diagnose'),
-    diagInfo: document.getElementById('diagInfo')
+    diagInfo: document.getElementById('diagInfo'),
+    reloadBox: document.getElementById('reloadBox'),
+    reloadText: document.getElementById('reloadText'),
+    reloadExt: document.getElementById('reloadExt')
   };
+
+  // Pliki rozszerzenia podmienione, ale rozszerzenie nieprzeładowane (v6.20):
+  // popup czyta pliki z dysku przy każdym otwarciu, a service worker, skrypty
+  // stron i wersja w manifeście zostają stare do „Odśwież" w
+  // vivaldi://extensions. Mieszanka nowego popupu ze starym workerem dawała
+  // np. „diagnoza ruszyła" bez żadnej karty. Porównujemy wersję na dysku z
+  // uruchomioną i prowadzimy do „Odśwież". Nie wołamy chrome.runtime.reload():
+  // w testach rozszerzenie wczytane jako rozpakowane znikało po nim zamiast
+  // wstać na nowo — użytkownik zostałby bez spoofu.
+  (async function checkReloadNeeded() {
+    try {
+      const running = chrome.runtime.getManifest().version;
+      const onDisk = (await (await fetch(chrome.runtime.getURL('manifest.json'), { cache: 'no-store' })).json()).version;
+      if (onDisk && onDisk !== running) {
+        els.reloadText.textContent = `W folderze jest v${onDisk}, ale działa jeszcze v${running} — ` +
+          'kliknij „Odśwież" (↻) przy tym rozszerzeniu na stronie rozszerzeń, inaczej część funkcji nie działa.';
+        els.reloadBox.hidden = false;
+      }
+    } catch (e) { /* brak dostępu do pliku — pomiń */ }
+  })();
+  els.reloadExt.addEventListener('click', () => {
+    chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}` });
+  });
 
   // Numer wersji z manifestu — zawsze zgodny z zainstalowanym buildem.
   try {
@@ -207,8 +233,14 @@
     const ev = AdblockSpoofMem.evaluate(memSample, memFirst, precise);
     const busy = !!(precise && precise.rendererBusy);
     const known = memSample || busy || (precise && !precise.error);
-    els.memLevel.textContent = busy ? 'nie odpowiada' : known ? LEVEL_LABELS[ev.level] : 'brak danych';
-    els.memLevel.className = 'lvl ' + (known ? 'l' + ev.level : 'na');
+    // „w normie" dopiero po pomiarze RAM — same wskaźniki mogą przeoczyć dużą kartę.
+    const ramOk = precise && !precise.error && precise.tabMB != null;
+    let label = known ? LEVEL_LABELS[ev.level] : 'brak danych';
+    if (busy) label = 'nie odpowiada';
+    else if (known && ev.level === 0 && !precise) label = 'mierzę…';
+    else if (known && ev.level === 0 && !ramOk) label = 'w normie (bez RAM)';
+    els.memLevel.textContent = label;
+    els.memLevel.className = 'lvl ' + (known && (precise || ev.level > 0) ? 'l' + ev.level : 'na');
 
     els.memReasons.textContent = '';
     ev.reasons.forEach((r) => addLine(els.memReasons, r.text, 'r' + r.level));
@@ -326,8 +358,13 @@
     if (!d) return;
     if (d.state === 'running') {
       const s = Math.round((Date.now() - d.startedAt) / 1000);
-      addLine(els.diagInfo, `Diagnoza trwa (${s} s)… Otwórz popup ponownie za chwilę.`);
-      els.diagnose.disabled = true;
+      // Pełna diagnoza trwa < 60 s; dłuższy „trwa" = przerwana (np. restart przeglądarki).
+      if (s <= 90) {
+        addLine(els.diagInfo, `Diagnoza trwa (${s} s)… Otwórz popup ponownie za chwilę.`);
+        els.diagnose.disabled = true;
+      } else {
+        addLine(els.diagInfo, 'Poprzednia diagnoza nie zakończyła się — uruchom ją ponownie.', 'r2');
+      }
       return;
     }
     const r = d.result || {};
@@ -352,11 +389,13 @@
   els.diagnose.addEventListener('click', async () => {
     els.diagnose.disabled = true;
     try {
-      await withTimeout(chrome.runtime.sendMessage({ type: 'adblock-spoof-diagnose', url: currentFullUrl }),
-        5000, 'Service worker rozszerzenia');
-      addLine(els.diagInfo, 'Diagnoza ruszyła w nowej karcie (30 s). Potem otwórz popup i skopiuj raport.');
+      const res = await withTimeout(chrome.runtime.sendMessage({
+        type: 'adblock-spoof-diagnose', url: currentFullUrl, tabId: memTabId
+      }), 8000, 'Service worker rozszerzenia');
+      if (!res || res.error) throw new Error((res && res.error) || 'brak odpowiedzi');
+      addLine(els.diagInfo, 'Diagnoza ruszyła w nowej karcie obok (30 s). Potem otwórz popup i skopiuj raport.', 'ok');
     } catch (e) {
-      addLine(els.diagInfo, 'Nie udało się uruchomić diagnozy: ' + e.message, 'r2');
+      addLine(els.diagInfo, /^Nie udało się/.test(e.message) ? e.message : 'Nie udało się uruchomić diagnozy: ' + e.message, 'r2');
       els.diagnose.disabled = false;
     }
   });

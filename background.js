@@ -271,19 +271,28 @@ async function memoryDump(target) {
     else if (method === 'Tracing.tracingComplete') complete();
   };
   chrome.debugger.onEvent.addListener(onEvent);
+  // Zrzut jest GLOBALNY — czeka na każdy proces. Jedna zawieszona karta
+  // (np. WP w tle) blokowała go, a z nim pomiar KAŻDEJ karty do limitu 10 s
+  // (v6.20: własny limit 3 s i czytelny powód).
+  let dumpTimedOut = false;
   try {
-    await chrome.debugger.sendCommand(target, 'Tracing.start', {
+    await rejectAfter(chrome.debugger.sendCommand(target, 'Tracing.start', {
       traceConfig: {
         includedCategories: ['disabled-by-default-memory-infra', 'disabled-by-default-devtools.timeline'],
         excludedCategories: ['*'],
         memoryDumpConfig: { triggers: [] }
       },
       transferMode: 'ReportEvents'
-    });
-    await chrome.debugger.sendCommand(target, 'Tracing.requestMemoryDump',
-      { deterministic: false, levelOfDetail: 'background' });
-    await chrome.debugger.sendCommand(target, 'Tracing.end');
-    await Promise.race([completed, new Promise((r) => setTimeout(r, 5000))]);
+    }), 3000);
+    try {
+      await rejectAfter(chrome.debugger.sendCommand(target, 'Tracing.requestMemoryDump',
+        { deterministic: false, levelOfDetail: 'background' }), 3000);
+    } catch (e) {
+      if (e.message !== 'timeout') throw e;
+      dumpTimedOut = true;
+    }
+    await rejectAfter(chrome.debugger.sendCommand(target, 'Tracing.end'), 3000).catch(() => {});
+    await Promise.race([completed, new Promise((r) => setTimeout(r, dumpTimedOut ? 1000 : 4000))]);
   } finally {
     chrome.debugger.onEvent.removeListener(onEvent);
   }
@@ -296,7 +305,11 @@ async function memoryDump(target) {
   const started = events.find((e) => e.name === 'TracingStartedInBrowser');
   const frames = (started && started.args.data.frames) || [];
   const main = frames.find((f) => !f.parent);
-  if (!main || !(main.processId in footprint)) throw new Error('brak procesu karty w zrzucie pamięci');
+  if (!main || !(main.processId in footprint)) {
+    throw new Error(dumpTimedOut
+      ? 'zrzut pamięci nie zakończył się w 3 s — inna karta prawdopodobnie nie odpowiada (zawieszona)'
+      : 'brak procesu karty w zrzucie pamięci');
+  }
 
   const subPids = [...new Set(frames.map((f) => f.processId))]
     .filter((pid) => pid !== main.processId && pid in footprint);
@@ -478,11 +491,23 @@ function siteOf(host) {
   return host.split('.').slice(-2).join('.');
 }
 
-async function diagnose(url) {
+// Karta do diagnozy powstaje w TYM SAMYM oknie, tuż obok badanej (v6.20).
+// Bez windowId przeglądarka wybiera „ostatnio aktywne okno" — w Vivaldi bywa
+// nim popup rozszerzenia i karta się nie otwierała. Błąd utworzenia karty
+// wraca do popupu zamiast ginąć po cichu.
+async function startDiagnosis(url, sourceTabId) {
+  let source = null;
+  try { source = await chrome.tabs.get(sourceTabId); } catch (e) { /* karta mogła zniknąć */ }
+  const opts = { url: 'about:blank', active: true };
+  if (source) { opts.windowId = source.windowId; opts.index = source.index + 1; }
+  const tab = await chrome.tabs.create(opts);
+  diagnose(url, tab);
+  return tab.id;
+}
+
+async function diagnose(url, tab) {
   const startedAt = Date.now();
   const result = { url: url.split(/[?#]/)[0], startedAt: new Date(startedAt).toISOString(), seconds: DIAG_SECONDS };
-  await chrome.storage.session.set({ diagLast: { state: 'running', url: result.url, startedAt } });
-  const tab = await chrome.tabs.create({ url: 'about:blank', active: true });
   const target = { tabId: tab.id };
   diagnosing.add(tab.id);
 
@@ -505,6 +530,7 @@ async function diagnose(url) {
   const send = (method, params, ms) => rejectAfter(chrome.debugger.sendCommand(target, method, params), ms || 3000);
 
   try {
+    await chrome.storage.session.set({ diagLast: { state: 'running', url: result.url, startedAt } });
     await rejectAfter(chrome.debugger.attach(target, '1.3'), 5000);
     await send('Debugger.enable');
     await send('Debugger.setBreakpointsActive', { active: false });
@@ -556,9 +582,10 @@ async function diagnose(url) {
     chrome.debugger.onEvent.removeListener(listener);
     await chrome.debugger.detach(target).catch(() => {});
     diagnosing.delete(tab.id);
+    result.tabId = tab.id;
+    await chrome.storage.session.set({ diagLast: { state: 'done', url: result.url, startedAt, result } })
+      .catch(() => {});
   }
-  result.tabId = tab.id;
-  await chrome.storage.session.set({ diagLast: { state: 'done', url: result.url, startedAt, result } });
   return result;
 }
 
@@ -636,10 +663,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return false;
   }
   // Diagnoza w nowej karcie — popup się wtedy zamknie, wynik czeka w diagLast.
+  // Odpowiadamy dopiero po utworzeniu karty (albo z błędem).
   if (msg && msg.type === 'adblock-spoof-diagnose' && /^https?:/.test(msg.url || '')) {
-    diagnose(msg.url);
-    sendResponse({ started: true });
-    return false;
+    startDiagnosis(msg.url, msg.tabId).then(
+      (tabId) => sendResponse({ started: true, tabId }),
+      async (e) => {
+        const error = 'Nie udało się otworzyć karty do diagnozy: ' + ((e && e.message) || e);
+        await chrome.storage.session.set({ diagLast: { state: 'done', url: msg.url.split(/[?#]/)[0],
+          startedAt: Date.now(), result: { error } } }).catch(() => {});
+        sendResponse({ error });
+      }
+    );
+    return true;
   }
   // Pomiar RAM karty dla popupu (maxAgeMs — wynik z pamięci, jeśli świeży).
   if (msg && msg.type === 'adblock-spoof-measure') {

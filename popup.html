@@ -73,6 +73,11 @@
     }
     button.reset:hover { background: #2c2c32; }
     .unsupported { color: #8a9096; font-size: 12px; }
+    .reload {
+      margin: 10px 14px 0; padding: 8px 10px; background: #3a1f1f; border-radius: 6px;
+      font-size: 12px; color: #f0b0b0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+    }
+    .reload[hidden] { display: none; }
     .mem { border-top: 1px solid #38383f; }
     .mem-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; }
     .lvl { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
@@ -119,6 +124,11 @@
     <div class="host" id="host">…</div>
     <span class="status on" id="status">aktywne na tej stronie</span>
   </header>
+
+  <div class="reload" id="reloadBox" hidden>
+    <div id="reloadText"></div>
+    <button class="reset" id="reloadExt">Otwórz stronę rozszerzeń</button>
+  </div>
 
   <section id="controls">
     <div class="row">
