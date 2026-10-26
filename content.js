@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.3
+// Universal Adblock Spoof v6.4
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -508,13 +508,31 @@
     '[class*="tp-backdrop"]', '[data-tp-id]'
   ];
 
+  // Tekst elementu z limitem długości. Zbiera węzły tekstowe i przerywa po
+  // przekroczeniu limitu (zwraca null) — nie buduje całego textContent dla
+  // wielkich poddrzew (np. wrappera całej strony). Na portalach WP warstwa
+  // ciężka działa stale, a każdy jej przebieg materializował ~100–200 KB tekstu.
+  var MAX_SIGNATURE_TEXT = 5000;
+  function boundedText(el) {
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    var parts = [], len = 0, n;
+    while ((n = walker.nextNode())) {
+      len += n.data.length;
+      if (len > MAX_SIGNATURE_TEXT) return null;
+      parts.push(n.data);
+    }
+    return parts.join('');
+  }
+
   function textMatchesSignature(el) {
     if (!el || el.nodeType !== 1) return false;
-    if (el.offsetHeight < 50 || el.offsetWidth < 50) return false;
-    var text = el.textContent || '';
-    if (text.length > 5000) return false;
+    var text = boundedText(el);
+    if (text === null) return false;
     var lower = text.toLowerCase();
-    return TEXT_SIGNATURES.some(function (sig) { return lower.indexOf(sig) !== -1; });
+    if (!TEXT_SIGNATURES.some(function (sig) { return lower.indexOf(sig) !== -1; })) return false;
+    // offsetHeight/offsetWidth wymuszają przeliczenie layoutu — sprawdzamy je
+    // dopiero gdy tekst pasuje do sygnatury (czyli prawie nigdy).
+    return el.offsetHeight >= 50 && el.offsetWidth >= 50;
   }
 
   function hasKnownWallObject() {
@@ -607,13 +625,17 @@
     var classes = SCREENING_KEYS.map(function (k) { return cfg.randomClasses[k]; }).filter(Boolean);
     if (!classes.length) return false;
 
+    var css = classes.map(function (c) {
+      return '.' + c + '{display:none!important;visibility:hidden!important}';
+    }).join('');
+    // Bez zmian → nie podmieniaj <style> (każda podmiana = przeliczenie stylów
+    // całej strony, a runHeavy odpala się przy każdej serii mutacji DOM).
     var existing = document.getElementById('fw-wp-screening');
+    if (existing && existing.textContent === css) return true;
     if (existing) existing.remove();
     var style = document.createElement('style');
     style.id = 'fw-wp-screening';
-    style.textContent = classes.map(function (c) {
-      return '.' + c + '{display:none!important;visibility:hidden!important}';
-    }).join('');
+    style.textContent = css;
     var target = document.head || document.documentElement;
     if (target) { target.appendChild(style); return true; }
     return false;
@@ -665,10 +687,15 @@
       } catch (e) {}
     });
 
+    // Tylko bezpośrednie dzieci kontenera — querySelectorAll('div, section')
+    // zwracało wszystkich potomków, co dla zagnieżdżonych [class*="content"]
+    // dawało koszt kwadratowy.
     var articleContainers = document.querySelectorAll('article, main, [class*="article"], [class*="content"]');
     articleContainers.forEach(function (container) {
-      container.querySelectorAll('div, section').forEach(function (el) {
-        if (el.parentElement === container && looksLikeAdblockPopup(el)) { el.remove(); reportRemoved(); }
+      Array.prototype.slice.call(container.children).forEach(function (el) {
+        if ((el.localName === 'div' || el.localName === 'section') && looksLikeAdblockPopup(el)) {
+          el.remove(); reportRemoved();
+        }
       });
     });
   }

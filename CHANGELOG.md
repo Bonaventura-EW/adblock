@@ -1,5 +1,28 @@
 # Changelog
 
+## v6.4 (2026-10-26)
+
+### Wydajność (portale WP: wp.pl, o2.pl, money.pl, pudelek.pl, sportowefakty…)
+Na portalach WP obecność `window.WP` zawsze włącza warstwę ciężką, więc
+`runHeavy()` odpala się przy każdej serii mutacji DOM przez cały czas życia karty.
+- `textMatchesSignature()`: tekst zbierany z limitem 5000 znaków (TreeWalker,
+  przerwanie po przekroczeniu) zamiast pełnego `textContent` wielkich poddrzew;
+  `offsetHeight/offsetWidth` (wymuszony reflow) sprawdzane dopiero po trafieniu
+  w sygnaturę. Wynik bez zmian.
+- `removeAdblockPopups()`: dla kontenerów artykułu iteracja tylko po
+  bezpośrednich dzieciach zamiast `querySelectorAll('div, section')` wszystkich
+  potomków (koszt kwadratowy przy zagnieżdżonych `[class*="content"]`).
+- `applyWPScreeningCSS()`: `<style id="fw-wp-screening">` nie jest odtwarzany,
+  jeśli treść się nie zmieniła (wcześniej każda podmiana = przeliczenie stylów
+  całej strony).
+
+Pomiar (Chromium + uBlock Origin Lite z listami PL, 2 min na stronę):
+łączny czas `runHeavy()` −15…−38%, najdłuższy pojedynczy przebieg 97–119 ms →
+17–29 ms. Zużycie RAM bez mierzalnej zmiany: v6.3 nie miało wycieku, a narzut
+rozszerzenia na stronach WP to ok. 0–40 MB (głównie własny proces rozszerzenia).
+
+---
+
 ## v6.3 (2026-06-02)
 
 ### Nowe
