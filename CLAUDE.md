@@ -153,6 +153,13 @@ Zwykłe API nie dają RAM-u karty: `chrome.processes` jest tylko w kanale Dev, a
    aktywnego okna; `tabs.onActivated` + 3 s mierzy kartę, jeśli jej pomiar ma
    > 5 min; limit 1 auto-pomiar/min; wyłączany `storage.local.autoRam = false`.
 
+**Odporność (v6.16) — NIE COFAĆ:** monitor rejestrowany OSOBNO od
+content.js/bridge.js (`registerContentScripts` jest atomowe — brak
+`monitor.js` blokował cały spoof); `importScripts('memcheck.js')` w `try`
+(brak pliku nie może zabić SW); popup sprawdza kompletność instalacji
+(`REQUIRED_FILES`) i ma limity czasu na każde czekanie (monitor 3 s, SW 15 s),
+przycisk pomiaru wraca w `finally`; raport nie czeka na nowy pomiar.
+
 Popup pyta monitor przez `chrome.tabs.sendMessage` (`adblock-spoof-mem-now`);
 monitor prosi wtedy content.js (postMessage `stats-req` → `stats`) o statystyki
 warstwy ciężkiej (przebiegi, ms CPU) — ten postMessage leci tylko na żądanie.

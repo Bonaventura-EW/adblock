@@ -104,9 +104,14 @@
   chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     if (!msg || msg.type !== 'adblock-spoof-mem-now') return false;
     requestHeavyStats(function (heavy) {
-      var s = sample();
-      s.heavy = heavy;
-      sendResponse({ sample: s, first: first, history: history });
+      // Zawsze odpowiedz — bez sendResponse popup czekałby w nieskończoność.
+      try {
+        var s = sample();
+        s.heavy = heavy;
+        sendResponse({ sample: s, first: first, history: history });
+      } catch (e) {
+        sendResponse({ error: String((e && e.message) || e) });
+      }
     });
     return true;
   });

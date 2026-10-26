@@ -8,7 +8,14 @@
 // gdy karta zużywa dużo pamięci.
 // ════════════════════════════════════════════════════════════════════════════
 
-importScripts('memcheck.js');
+// Brak memcheck.js (np. niepełna aktualizacja — skopiowane tylko stare pliki)
+// nie może zabić całego service workera: rejestracja spoofu i licznik muszą
+// działać dalej. Funkcje pamięci sprawdzają wtedy self.AdblockSpoofMem.
+try {
+  importScripts('memcheck.js');
+} catch (e) {
+  console.error('[Adblock Spoof] brak memcheck.js — funkcje pamięci wyłączone:', e);
+}
 
 const MATCHES = ['*://*/*'];
 
@@ -100,18 +107,22 @@ async function doApplyRegistration() {
       world: 'ISOLATED',
       persistAcrossSessions: true,
       excludeMatches
-    },
-    {
-      id: SCRIPT_IDS.monitor,
-      js: ['memcheck.js', 'monitor.js'],
-      matches: MATCHES,
-      runAt: 'document_idle',
-      allFrames: false,
-      world: 'ISOLATED',
-      persistAcrossSessions: true,
-      excludeMatches
     }
   ];
+
+  // Monitor pamięci rejestrowany OSOBNO (niżej): registerContentScripts jest
+  // atomowe dla całej listy, więc brak monitor.js/memcheck.js blokował też
+  // rejestrację spoofu i strona zostawała bez ochrony (v6.16).
+  const monitor = {
+    id: SCRIPT_IDS.monitor,
+    js: ['memcheck.js', 'monitor.js'],
+    matches: MATCHES,
+    runAt: 'document_idle',
+    allFrames: false,
+    world: 'ISOLATED',
+    persistAcrossSessions: true,
+    excludeMatches
+  };
 
   // Istniejące skrypty AKTUALIZUJEMY jednym atomowym updateContentScripts (bez
   // unregister+register), więc service worker nie może zginąć „w połowie" i
@@ -136,13 +147,23 @@ async function doApplyRegistration() {
     // Awaryjnie (np. niespójny rejestr): pełny reset i rejestracja od zera.
     console.warn('[Adblock Spoof] nietypowy stan rejestracji, pełny reset:', e && e.message);
     try {
-      await chrome.scripting.unregisterContentScripts({ ids: Object.values(SCRIPT_IDS) });
+      await chrome.scripting.unregisterContentScripts({ ids: [SCRIPT_IDS.main, SCRIPT_IDS.bridge] });
     } catch (e2) { /* mogło nie istnieć */ }
     try {
       await chrome.scripting.registerContentScripts(scripts);
     } catch (e3) {
       console.error('[Adblock Spoof] registration failed:', e3);
     }
+  }
+
+  try {
+    if (existingIds.includes(monitor.id)) {
+      await chrome.scripting.updateContentScripts([{ id: monitor.id, matches: MATCHES, excludeMatches }]);
+    } else {
+      await chrome.scripting.registerContentScripts([monitor]);
+    }
+  } catch (e) {
+    console.warn('[Adblock Spoof] monitor pamięci niezarejestrowany:', e && e.message);
   }
 
   await applyDisabledDomainsRule(store.disabledDomains);
@@ -203,7 +224,8 @@ function updateTabState(tabId, patch) {
 }
 
 function renderTabIndicator(tabId, st) {
-  const ramLevel = st.ramMB != null ? AdblockSpoofMem.levelOf('tabMB', st.ramMB) : 0;
+  const mem = self.AdblockSpoofMem;
+  const ramLevel = st.ramMB != null && mem ? mem.levelOf('tabMB', st.ramMB) : 0;
   const level = Math.max(st.monitorLevel || 0, ramLevel);
   let text = '';
   if (ramLevel > 0) text = st.ramMB >= 1000 ? (st.ramMB / 1024).toFixed(1) + 'G' : String(st.ramMB);

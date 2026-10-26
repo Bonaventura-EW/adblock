@@ -1,5 +1,31 @@
 # Changelog
 
+## v6.16 (2026-10-26)
+
+### Naprawione
+- **Popup wisiał na „Mierzę…", sekcja pamięci była pusta, „Kopiuj raport" nic
+  nie robił** (zgłoszenie z Vivaldi). Odtworzone: tak wygląda instalacja, w
+  której brakuje nowych plików z v6.15 (`memcheck.js`, `monitor.js`, czerwone
+  ikony) — np. gdy przy aktualizacji nadpisano tylko istniejące pliki. Popup
+  rzucał `AdblockSpoofMem is not defined`, a przycisk nigdy nie wracał.
+  - Popup sprawdza kompletność instalacji i wprost wypisuje brakujące pliki
+    z instrukcją („rozpakuj CAŁY ZIP…").
+  - Każde czekanie ma limit: monitor strony 3 s, service worker 15 s; po nim
+    konkretny komunikat, co nie odpowiada. Przycisk zawsze wraca
+    (`try/finally`), błąd renderowania pokazuje się w popupie zamiast go
+    wysypywać.
+  - „Kopiuj raport" / „Pobierz .json" nie uruchamiają już długiego pomiaru —
+    biorą bieżące dane (trwający pomiar dostaje najwyżej 2,5 s). Raport ma
+    pole `missingFiles`.
+  - `monitor.js` zawsze odpowiada popupowi (także przy błędzie).
+- **Brak `monitor.js`/`memcheck.js` wyłączał cały spoof.** `registerContentScripts`
+  jest atomowe dla listy, więc nieudana rejestracja monitora blokowała też
+  `content.js` i `bridge.js` — nowe strony zostawały bez ochrony. Monitor
+  rejestrowany jest teraz osobno; jego błąd nie rusza spoofu.
+- **Brak `memcheck.js` zabijał service worker** (`importScripts` rzucał przy
+  starcie) — teraz łapany; rejestracja i licznik działają dalej, funkcje
+  pamięci sprawdzają `self.AdblockSpoofMem`.
+
 ## v6.15 (2026-10-26)
 
 Scalenie pracy z gałęzi `claude/vivaldi-extension-ram-usage-9dgp0s` do `main`.

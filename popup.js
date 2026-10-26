@@ -106,6 +106,8 @@
     els.autoRam.checked = store.autoRam !== false;
 
     memTabId = tab.id;
+    missing = await missingFiles();
+    if (missing.length) { showBrokenInstall(); return; }
     await loadMemory();
     await runMeasure(false);
   }
@@ -119,6 +121,45 @@
   let memFirst = null;
   let memHistory = [];
   let lastPrecise = null;
+  let measuring = null;
+  let missing = [];
+  let sampleError = null;
+
+  // Pliki dodane w v6.15. Przy aktualizacji „nadpisz istniejące pliki" łatwo
+  // ich nie skopiować — wtedy sekcja pamięci nie działała, a przyciski wisiały
+  // na „Mierzę…" bez żadnego komunikatu (v6.16).
+  const REQUIRED_FILES = ['memcheck.js', 'monitor.js', 'icons/icon16-red.png'];
+
+  async function missingFiles() {
+    const out = [];
+    for (const f of REQUIRED_FILES) {
+      try {
+        const r = await fetch(chrome.runtime.getURL(f), { method: 'HEAD' });
+        if (!r.ok) out.push(f);
+      } catch (e) { out.push(f); }
+    }
+    if (typeof AdblockSpoofMem === 'undefined' && !out.includes('memcheck.js')) out.push('memcheck.js');
+    return out;
+  }
+
+  function showBrokenInstall() {
+    els.memLevel.textContent = 'błąd';
+    els.memLevel.className = 'lvl l2';
+    els.ramMB.textContent = '—';
+    els.ramDetail.textContent = '';
+    els.memInfo.textContent = '';
+    addLine(els.memInfo, 'Niepełna instalacja — w folderze rozszerzenia brakuje: ' + missing.join(', ') + '.', 'r2');
+    addLine(els.memInfo, 'Rozpakuj CAŁY plik ZIP do folderu rozszerzenia (z zastąpieniem plików) ' +
+      'i kliknij „Odśwież" przy rozszerzeniu w vivaldi://extensions.');
+    els.measure.disabled = true;
+  }
+
+  // Każde czekanie na inną część rozszerzenia ma limit — popup nigdy nie wisi.
+  function withTimeout(promise, ms, what) {
+    return Promise.race([promise, new Promise((resolve, reject) => {
+      setTimeout(() => reject(new Error(`${what} nie odpowiada (${ms / 1000} s)`)), ms);
+    })]);
+  }
 
   function addLine(parent, text, cls) {
     const el = document.createElement(parent === els.memReasons ? 'li' : 'div');
@@ -127,14 +168,18 @@
     parent.appendChild(el);
   }
 
-  async function fetchSample() {
+  async function fetchSample(timeoutMs) {
     try {
-      const res = await chrome.tabs.sendMessage(memTabId, { type: 'adblock-spoof-mem-now' });
+      const res = await withTimeout(chrome.tabs.sendMessage(memTabId, { type: 'adblock-spoof-mem-now' }),
+        timeoutMs || 3000, 'Monitor strony');
+      if (res && res.error) throw new Error('Monitor strony: ' + res.error);
       memSample = res && res.sample;
       memFirst = res && res.first;
       memHistory = (res && res.history) || [];
+      sampleError = null;
     } catch (e) {
       memSample = null; // monitor nie działa na tej karcie
+      sampleError = (e && e.message) || String(e);
     }
   }
 
@@ -144,6 +189,15 @@
   }
 
   function renderMemory(precise) {
+    try {
+      renderMemoryUnsafe(precise);
+    } catch (e) {
+      els.memPrecise.textContent = '';
+      addLine(els.memPrecise, 'Błąd popupu: ' + ((e && e.message) || e), 'r2');
+    }
+  }
+
+  function renderMemoryUnsafe(precise) {
     const ev = AdblockSpoofMem.evaluate(memSample, memFirst, precise);
     const known = memSample || (precise && !precise.error);
     els.memLevel.textContent = known ? LEVEL_LABELS[ev.level] : 'brak danych';
@@ -156,9 +210,13 @@
     els.memInfo.textContent = '';
     const s = memSample;
     if (!s) {
-      addLine(els.memInfo, els.domainToggle.checked && els.urlToggle.checked
+      const active = els.domainToggle.checked && els.urlToggle.checked;
+      addLine(els.memInfo, active
         ? 'Brak danych z monitora — odśwież stronę (F5).'
         : 'Monitor nie działa, gdy rozszerzenie jest tu wyłączone. Użyj „Zmierz dokładnie".');
+      if (active && sampleError && !/Receiving end does not exist|Could not establish connection/.test(sampleError)) {
+        addLine(els.memInfo, sampleError, 'r2');
+      }
     } else {
       addLine(els.memInfo, `Elementy DOM: ${s.elements} · ramki: ${s.iframes} · wideo: ${s.videos}`);
       addLine(els.memInfo, `Obrazki: ${s.images} (ok. ${s.imagesMB} MB po zdekodowaniu)`);
@@ -209,21 +267,31 @@
 
   // force=false: wynik młodszy niż 20 s bierzemy z pamięci service workera
   // (ponowne otwarcie popupu nie podłącza debuggera od nowa).
-  async function runMeasure(force) {
+  function runMeasure(force) {
+    if (!measuring) {
+      measuring = doMeasure(force).finally(() => { measuring = null; });
+    }
+    return measuring;
+  }
+
+  async function doMeasure(force) {
     els.measure.disabled = true;
     els.measure.textContent = 'Mierzę…';
     try {
-      lastPrecise = await chrome.runtime.sendMessage({
+      lastPrecise = await withTimeout(chrome.runtime.sendMessage({
         type: 'adblock-spoof-measure', tabId: memTabId, maxAgeMs: force ? 0 : 20000
-      });
+      }), 15000, 'Service worker rozszerzenia');
     } catch (e) {
       lastPrecise = { error: 'Pomiar nieudany: ' + e.message };
     }
-    lastPrecise = lastPrecise || { error: 'Pomiar nieudany.' };
-    await fetchSample();
-    renderMemory(lastPrecise);
-    els.measure.disabled = false;
-    els.measure.textContent = 'Zmierz ponownie';
+    lastPrecise = lastPrecise || { error: 'Pomiar nieudany (brak odpowiedzi service workera).' };
+    try {
+      await fetchSample();
+      renderMemory(lastPrecise);
+    } finally {
+      els.measure.disabled = false;
+      els.measure.textContent = 'Zmierz ponownie';
+    }
   }
 
   els.measure.addEventListener('click', () => runMeasure(true));
@@ -233,9 +301,12 @@
   });
 
   // ── Raport do analizy (schowek / plik .json) ──────────────────────────────
+  // Bez długiego czekania: raport bierze to, co już jest (trwający pomiar
+  // dostaje najwyżej 2,5 s), żeby kliknięcie od razu kopiowało.
   async function buildReport() {
-    if (!lastPrecise) await runMeasure(false);
-    else { await fetchSample(); renderMemory(lastPrecise); }
+    if (measuring) await Promise.race([measuring, new Promise((r) => setTimeout(r, 2500))]).catch(() => {});
+    if (!missing.length) await fetchSample(1500);
+    const mem = typeof AdblockSpoofMem !== 'undefined' ? AdblockSpoofMem : null;
     const tm = parseInt(els.tmMB.value, 10);
     return {
       report: 'adblock-spoof-memory',
@@ -245,12 +316,13 @@
       page: currentUrl, // bez query i hasha
       extensionActiveHere: els.domainToggle.checked && els.urlToggle.checked,
       taskManagerMB: Number.isFinite(tm) ? tm : null,
-      evaluation: AdblockSpoofMem.evaluate(memSample, memFirst, lastPrecise),
+      missingFiles: missing,
+      evaluation: mem ? mem.evaluate(memSample, memFirst, lastPrecise) : null,
       precise: lastPrecise,
       sample: memSample,
       first: memFirst,
       history: memHistory,
-      limits: AdblockSpoofMem.LIMITS
+      limits: mem ? mem.LIMITS : null
     };
   }
 
@@ -276,14 +348,22 @@
   }
 
   els.copyReport.addEventListener('click', async () => {
-    const text = JSON.stringify(await buildReport(), null, 1);
-    showReportNote((await copyText(text))
-      ? 'Skopiowano raport — wklej go w czacie (Ctrl+V).'
-      : 'Nie udało się skopiować — użyj „Pobierz .json".', true);
+    try {
+      const text = JSON.stringify(await buildReport(), null, 1);
+      showReportNote((await copyText(text))
+        ? 'Skopiowano raport — wklej go w czacie (Ctrl+V).'
+        : 'Nie udało się skopiować — użyj „Pobierz .json".', true);
+    } catch (e) {
+      showReportNote('Błąd raportu: ' + ((e && e.message) || e));
+    }
   });
 
   els.saveReport.addEventListener('click', async () => {
-    const report = await buildReport();
+    let report;
+    try { report = await buildReport(); } catch (e) {
+      showReportNote('Błąd raportu: ' + ((e && e.message) || e));
+      return;
+    }
     const blob = new Blob([JSON.stringify(report, null, 1)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
