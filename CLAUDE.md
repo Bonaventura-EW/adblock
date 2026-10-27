@@ -60,6 +60,7 @@ content.js           rdzeń, world: MAIN, document_start, allFrames
 background.js        service worker: dynamiczna rejestracja skryptów, licznik,
                      pomiar RAM kart (chrome.debugger), czerwona ikona, auto-pomiar
 bridge.js            world: ISOLATED — przekazuje postMessage → chrome.runtime
+                     (licznik ścian, prośba o arkusz odsłaniający zdjęcie)
 memcheck.js          progi i powody „dużo pamięci" (wspólne: monitor, popup, SW)
 monitor.js           world: ISOLATED, tylko główna ramka, document_idle —
                      co 30 s tanie wskaźniki pamięci karty
@@ -290,6 +291,13 @@ Trzy metody (wystarczy jedna):
   mikrozadań → karta „nie odpowiada", RAM +2 GB/min (wiadomosci.wp.pl).
   Zasada ogólna: każdy obserwator, który ZMIENIA to, co sam obserwuje, musi
   mieć limit liczony w zdarzeniach, nie tylko w czasie.
+  **Odsłonięcie bez przepychanki (v6.23):** gdy limit wyczerpie się w < 1 s
+  (walka obserwatorów), `revealViaUserCss()` oznacza zdjęcie atrybutem
+  `data-adblock-spoof-reveal` i przez bridge.js (`reveal-css`) prosi SW o
+  `chrome.scripting.insertCSS({origin:'USER'})` z
+  `img[data-adblock-spoof-reveal]{display:block!important;…}`. `!important`
+  użytkownika wygrywa z inline `!important` strony, a styl inline zostaje
+  „none" → obserwator strony milczy. Max 5 zdjęć/stronę (`revealCss`).
 - `removeMarkerOverlays()` (v6.11) — ściany toolkitspro (np. fxmag.pl) mają klasy
   haszowane per-dzień; stała jest tylko ikona `adblock_new_icon`. Od niej
   wspinamy się do nakładki `position:fixed` z `z-index≥1000` i usuwamy ją całą.

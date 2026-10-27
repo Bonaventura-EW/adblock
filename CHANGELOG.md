@@ -1,5 +1,30 @@
 # Changelog
 
+## v6.23 (2026-10-27)
+
+### Naprawione
+- **Pierwsze zdjęcie artykułu niewidoczne na wiadomosci.wp.pl** (po v6.22).
+  Raport użytkownika z v6.22: RAM stoi (karta 475 MB, DOM stały), a
+  `revealGaveUp: 1` — bezpiecznik z v6.22 zadziałał, czyli zdjęcia naprawdę
+  pilnował czyjś obserwator (strony albo blokera reklam). Po odpuszczeniu
+  zdjęcie zostawało schowane.
+  - Odsłonięcie bez przepychanki: gdy limit 5 odsłonięć wyczerpie się w
+    < 1 s (walka obserwatorów, a nie karuzela slajdów), content.js przestaje
+    ruszać styl inline. Oznacza zdjęcie atrybutem `data-adblock-spoof-reveal`
+    i przez bridge.js prosi SW o arkusz
+    `chrome.scripting.insertCSS({origin: 'USER'})`.
+  - Deklaracja `!important` w originie USER wygrywa w kaskadzie nawet z inline
+    `display:none!important` strony. Styl inline zostaje „none", więc
+    obserwator strony nie ma na co reagować — pętla się nie wznawia.
+  - Test (zdjęcie pilnowane obserwatorem): v6.22 — schowane; v6.23 —
+    widoczne, styl inline nadal `none`, karta odpowiada. Zwykłe „schowaj
+    ponownie" co kilka sekund dalej odsłaniane po staremu.
+  - Najwyżej 5 zdjęć na stronę; licznik `revealCss` w statystykach raportu
+    (`sample.heavy`).
+  - Na prawdziwym artykule w Chromium bez Vivaldi zdjęcie jest widoczne i bez
+    tego (uBlock Origin Lite, AdBlock 6.50) — chowanie występuje tylko w
+    zestawie użytkownika.
+
 ## v6.22 (2026-10-26)
 
 ### Naprawione

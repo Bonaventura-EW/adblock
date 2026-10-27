@@ -88,7 +88,8 @@
       if (event.source !== window) return;
       var d = event.data;
       if (!d || d.source !== 'adblock-spoof' || d.type !== 'stats') return;
-      finish({ wall: !!d.wall, runs: d.runs, ms: Math.round(d.ms), revealGaveUp: d.revealGaveUp || 0 });
+      finish({ wall: !!d.wall, runs: d.runs, ms: Math.round(d.ms), revealGaveUp: d.revealGaveUp || 0,
+        revealCss: d.revealCss || 0 });
     }
     function finish(v) {
       if (done) return;

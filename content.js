@@ -1,4 +1,4 @@
-// Universal Adblock Spoof v6.22
+// Universal Adblock Spoof v6.23
 // ════════════════════════════════════════════════════════════════════════════
 // TRYB UNIWERSALNY: działa na każdej stronie (model "detekcja → reakcja").
 //
@@ -15,8 +15,8 @@
   'use strict';
 
   // Znacznik wersji — do potwierdzenia w konsoli, że ten kod jest aktywny:
-  //   window.__adblockSpoof   →   "6.22"
-  try { window.__adblockSpoof = '6.22'; } catch (e) {}
+  //   window.__adblockSpoof   →   "6.23"
+  try { window.__adblockSpoof = '6.23'; } catch (e) {}
 
   // Czy wykryto ścianę adblock. Dopóki false — warstwa ciężka śpi.
   var wallDetected = false;
@@ -28,14 +28,15 @@
 
   // Statystyki warstwy ciężkiej dla monitora pamięci (monitor.js pyta o nie
   // tylko po otwarciu popupu).
-  var heavyStats = { runs: 0, ms: 0, revealGaveUp: 0 };
+  var heavyStats = { runs: 0, ms: 0, revealGaveUp: 0, revealCss: 0 };
   window.addEventListener('message', function (event) {
     if (event.source !== window) return;
     var d = event.data;
     if (!d || d.source !== 'adblock-spoof' || d.type !== 'stats-req') return;
     try {
       window.postMessage({ source: 'adblock-spoof', type: 'stats', wall: wallDetected,
-        runs: heavyStats.runs, ms: heavyStats.ms, revealGaveUp: heavyStats.revealGaveUp }, '*');
+        runs: heavyStats.runs, ms: heavyStats.ms, revealGaveUp: heavyStats.revealGaveUp,
+        revealCss: heavyStats.revealCss }, '*');
     } catch (e) {}
   }, false);
 
@@ -795,9 +796,30 @@
     if (++r.n > MAX_REVEALS) {
       r.gaveUp = true;
       heavyStats.revealGaveUp++;
+      // Limit wyczerpany w < 1 s = zdjęcia pilnuje obserwator (strony albo
+      // blokera), a nie np. karuzela przełączająca slajdy co kilka sekund.
+      if (now - r.t < 1000) revealViaUserCss(img);
       return false;
     }
     return true;
+  }
+
+  // Odsłonięcie bez przepychanki (v6.23). Pilnowanego zdjęcia już nie
+  // ruszamy inline — oznaczamy je atrybutem, a service worker wstrzykuje arkusz
+  // w originie USER (chrome.scripting.insertCSS). Deklaracja !important
+  // użytkownika wygrywa w kaskadzie nawet z inline display:none!important
+  // strony, a styl inline zostaje „none", więc obserwator strony nie ma na co
+  // reagować. Nasz obserwator nie słucha tego atrybutu (attributeFilter).
+  var REVEAL_ATTR = 'data-adblock-spoof-reveal';
+  var MAX_CSS_REVEALS = 5;
+  var _revealCssAsked = false;
+  function revealViaUserCss(img) {
+    if (heavyStats.revealCss >= MAX_CSS_REVEALS) return;
+    try { img.setAttribute(REVEAL_ATTR, ''); } catch (e) { return; }
+    heavyStats.revealCss++;
+    if (_revealCssAsked) return;
+    _revealCssAsked = true;
+    try { window.postMessage({ source: 'adblock-spoof', type: 'reveal-css' }, '*'); } catch (e) {}
   }
 
   function revealOneImg(img) {

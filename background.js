@@ -695,7 +695,20 @@ function summarizeCpu(events, host) {
 }
 
 // Licznik usuniętych ścian — wiadomości przychodzą z bridge.js.
+// Arkusz odsłaniający pilnowane zdjęcie (v6.23) — origin USER, bo tylko
+// !important użytkownika wygrywa z inline display:none!important strony.
+// Działa wyłącznie na elementy oznaczone przez content.js (revealViaUserCss).
+const REVEAL_CSS = 'img[data-adblock-spoof-reveal]{display:block!important;visibility:visible!important}';
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg && msg.type === 'adblock-spoof-reveal-css' && sender.tab) {
+    chrome.scripting.insertCSS({
+      target: { tabId: sender.tab.id, frameIds: [sender.frameId || 0] },
+      origin: 'USER',
+      css: REVEAL_CSS
+    }).catch(() => {});
+    return false;
+  }
   if (msg && msg.type === 'adblock-spoof-removed') {
     chrome.storage.local.get(['removedCount'], (res) => {
       const next = (res.removedCount || 0) + 1;

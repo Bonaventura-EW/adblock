@@ -1,8 +1,9 @@
 // Universal Adblock Spoof — most ISOLATED ↔ service worker
 // ════════════════════════════════════════════════════════════════════════════
 // content.js działa w świecie MAIN (bez dostępu do chrome.*), więc licznik
-// usuniętych ścian przekazuje przez window.postMessage. Ten skrypt (ISOLATED)
-// odbiera te wiadomości i forwarduje je do service workera.
+// usuniętych ścian i prośbę o arkusz odsłaniający zdjęcie przekazuje przez
+// window.postMessage. Ten skrypt (ISOLATED) odbiera te wiadomości i
+// forwarduje je do service workera.
 // ════════════════════════════════════════════════════════════════════════════
 
 (function () {
@@ -10,9 +11,15 @@
   window.addEventListener('message', function (event) {
     if (event.source !== window) return;
     var data = event.data;
-    if (!data || data.source !== 'adblock-spoof' || data.type !== 'removed') return;
+    if (!data || data.source !== 'adblock-spoof') return;
+    // removed — licznik ścian; reveal-css — arkusz odsłaniający pilnowane
+    // zdjęcie (v6.23, content.js revealViaUserCss).
+    var type = data.type === 'removed' ? 'adblock-spoof-removed'
+      : data.type === 'reveal-css' ? 'adblock-spoof-reveal-css' : null;
+    if (!type) return;
     try {
-      chrome.runtime.sendMessage({ type: 'adblock-spoof-removed' });
-    } catch (e) { /* SW może być uśpiony — bez znaczenia */ }
+      var p = chrome.runtime.sendMessage({ type: type });
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) { /* kontekst unieważniony (przeładowanie) — bez znaczenia */ }
   }, false);
 })();
