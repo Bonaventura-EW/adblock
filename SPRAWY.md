@@ -23,31 +23,13 @@ problemem przyszedł użytkownik i czy problem naprawdę zniknął**.
 
 ## Otwarte
 
-### S-21: Prawie 600 MB RAM-u na jednym artykule — co to jest?
-- **Zgłoszono:** 2026-10-27, v6.23 (zrzut popupu: 582 MB = strona 237 MB +
-  ramki w osobnych procesach 345 MB (8); raport: 479 MB = 154 + 325 MB (8),
-  sterta JS 24 MB, DOM 14 MB, warstwa ciężka 66–80 ms CPU).
-- **Ustalenia (2026-10-27, ten sam artykuł w Chromium, z rozszerzeniem / bez):**
-  - bez blokera: 1154–1334 MB, 36–39 procesów — ramki „synchronizacji
-    ciasteczek" kilkudziesięciu firm reklamowych, każda w osobnym procesie
-    (~25–50 MB);
-  - AdBlock 6.50: 350–359 MB = strona + 8 procesów ramek po ~30 MB
-    (pubmatic, adnxs, rubiconproject, indexww, casalemedia, openx, criteo,
-    visx) — ten sam profil co u użytkownika;
-  - uBlock Origin Lite: 105–106 MB, jeden proces;
-  - rozszerzenie (spoof) nie zmienia wyniku przy żadnym blokerze (106/105,
-    350/359 MB); jego własna praca na stronie to ~70 ms CPU.
-  Wniosek: ~60% RAM-u karty to ramki reklam/śledzenia przepuszczane przez
-  bloker użytkownika; proces strony (150–240 MB) to sama strona WP.
-- **Stan:** 2026-10-27 — v6.24: popup i raport pokazują podział na ramki z
-  nazwą serwisu („Ramki z innych serwisów: …"). Czeka na odpowiedź
-  użytkownika: jaki bloker (S-17); propozycja — uBlock Origin / uBO Lite
-  (artykuł ~105 MB zamiast ~350–580 MB).
-- **Stan 2026-10-27:** użytkownik przeszedł na uBlock Origin Lite. Czeka na
-  potwierdzenie, że RAM karty spadł. Oczekiwane: brak procesów ramek
-  reklamowych, karta ok. 150–250 MB (w Chromium 105 MB; proces strony w
-  Vivaldi był większy — 154–237 MB).
-- **Test:** `npm test -- "podział RAM"`.
+### S-22: Reklama WP widoczna na artykule przy uBO Lite
+- **Zauważone:** 2026-10-27 na zrzucie użytkownika (v6.24, uBO Lite): po prawej
+  stronie artykułu baner reklamowy („Sprawdź"). Użytkownik tego nie zgłaszał.
+- **Ustalenia:** brak. Do sprawdzenia, czy to reklama serwowana z domeny WP
+  (której blokery sieciowe nie odróżnią od treści) i czy ma z tym coś
+  wspólnego spoof (strona „myśli", że blokera nie ma).
+- **Stan:** czeka na decyzję użytkownika, czy się tym zająć.
 
 ### S-04: AdBlock (getadblock) + spoof = lawinowy RAM na portalach WP
 - **Zgłoszono:** 2026-07, AdBlock 6.43 (potwierdzone przez użytkownika: po
@@ -81,6 +63,38 @@ problemem przyszedł użytkownik i czy problem naprawdę zniknął**.
 ---
 
 ## Rozwiązane
+
+### S-21: Prawie 600 MB RAM-u na jednym artykule — co to jest?
+- **Zgłoszono:** 2026-10-27, v6.23 (zrzut popupu: 582 MB = strona 237 MB +
+  ramki w osobnych procesach 345 MB (8); raport: 479 MB = 154 + 325 MB (8),
+  sterta JS 24 MB, DOM 14 MB, warstwa ciężka 66–80 ms CPU).
+- **Ustalenia (2026-10-27, ten sam artykuł w Chromium, z rozszerzeniem / bez):**
+  - bez blokera: 1154–1334 MB, 36–39 procesów — ramki „synchronizacji
+    ciasteczek" kilkudziesięciu firm reklamowych, każda w osobnym procesie
+    (~25–50 MB);
+  - AdBlock 6.50: 350–359 MB = strona + 8 procesów ramek po ~30 MB
+    (pubmatic, adnxs, rubiconproject, indexww, casalemedia, openx, criteo,
+    visx) — ten sam profil co u użytkownika;
+  - uBlock Origin Lite: 105–106 MB, jeden proces;
+  - rozszerzenie (spoof) nie zmienia wyniku przy żadnym blokerze (106/105,
+    350/359 MB); jego własna praca na stronie to ~70 ms CPU.
+  Wniosek: ~60% RAM-u karty to ramki reklam/śledzenia przepuszczane przez
+  bloker użytkownika; proces strony (150–240 MB) to sama strona WP.
+- **Stan:** 2026-10-27 — v6.24: popup i raport pokazują podział na ramki z
+  nazwą serwisu („Ramki z innych serwisów: …"). Czeka na odpowiedź
+  użytkownika: jaki bloker (S-17); propozycja — uBlock Origin / uBO Lite
+  (artykuł ~105 MB zamiast ~350–580 MB).
+- **Stan 2026-10-27:** użytkownik przeszedł na uBlock Origin Lite. Czeka na
+  potwierdzenie, że RAM karty spadł. Oczekiwane: brak procesów ramek
+  reklamowych, karta ok. 150–250 MB (w Chromium 105 MB; proces strony w
+  Vivaldi był większy — 154–237 MB).
+- **Test:** `npm test -- "podział RAM"`.
+- ✅ **Rozwiązane: v6.24 + zmiana blokera (2026-10-27)** — potwierdzone przez
+  użytkownika tego samego dnia (zrzut popupu i raport z
+  `wiadomosci.wp.pl/trump-ubezpiecza-sie-…-7344346892556320a`): karta
+  **136 MB** (było 479–582 MB), 0 procesów ramek (było 8), ocena „w normie",
+  warstwa ciężka 134 ms CPU, `revealGaveUp: 0` (z uBO Lite strona nie chowa
+  zdjęcia). Komentarz użytkownika: „wygląda nieźle".
 
 ### S-17: Jakiego blokera reklam używa użytkownik?
 - **Zgłoszono:** pytanie zadane kilka razy 2026-10-26/27 — bez odpowiedzi.

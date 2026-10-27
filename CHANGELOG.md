@@ -2,6 +2,14 @@
 
 ## Repozytorium (2026-10-27) — bez nowej wersji rozszerzenia
 
+- **Potwierdzenie od użytkownika (v6.24 + uBlock Origin Lite):** artykuł z
+  wiadomosci.wp.pl — karta 136 MB (było 479–582 MB), 0 procesów ramek
+  reklamowych (było 8), ocena „w normie". `SPRAWY.md`: S-21 rozwiązana;
+  nowa S-22 (na zrzucie widać baner reklamowy WP — do decyzji użytkownika).
+  README: wynik z Vivaldi przy „Co zjada RAM".
+
+## Repozytorium (2026-10-27) — bez nowej wersji rozszerzenia
+
 - Użytkownik przeszedł na **uBlock Origin Lite** (po ustaleniach z v6.24:
   z uBO Lite artykuł z wiadomosci.wp.pl ~105 MB zamiast ~350–580 MB).
   `SPRAWY.md`: S-17 rozwiązana (wiadomo, jaki bloker), S-21 czeka na

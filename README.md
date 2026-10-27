@@ -106,7 +106,9 @@ karty z nazwą serwisu (np. `pubmatic.com 31 MB · adnxs.com 30 MB`). Każda
 ramka z innego serwisu ma w przeglądarce osobny proces (ok. 25–50 MB). Na
 portalach to zwykle reklamy i śledzenie — ich liczbę ogranicza bloker reklam.
 Na artykule z wiadomosci.wp.pl: z uBlock Origin Lite ok. 105 MB, z AdBlockiem
-ok. 350 MB, bez blokera ponad 1 GB.
+ok. 350 MB, bez blokera ponad 1 GB. U użytkownika w Vivaldi (2026-10-27): z
+poprzednim blokerem 479–582 MB (8 procesów ramek), po przejściu na uBO Lite
+136 MB (0 procesów ramek).
 
 **Czerwona ikona.** Gdy karta zużywa ≥ 500 MB (albo strona ma bardzo duży DOM,
 dużo ramek lub obrazków), ikona na tej karcie robi się czerwona, a znaczek
