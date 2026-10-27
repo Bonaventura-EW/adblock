@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- Ochrona DOM (v6.18): pętle czyszczące kontener muszą się kończyć; pojedyncze usunięcie treści nadal blokowane. --><html><head><meta charset="utf-8"><title>protect</title>
+<script>window.WP = [];</script>
+</head><body>
+<div id="c"><div class="art"><p class="wp-content-text-raw">Treść artykułu</p></div><p>inny</p></div>
+<div id="d"><div class="art"><p class="wp-content-text-raw">Treść 2</p></div></div>
+<div id="e"><p class="wp-content-text-raw">Treść 3</p></div>
+<div id="f"><p id="fp" class="wp-content-text-raw">Treść 4</p></div>
+<div id="g"><div id="gw"><p class="wp-content-text-raw">Treść 5</p></div></div>
+<script>
+  setTimeout(function () {
+    var r = {};
+    // typical "clear container" loops, capped so the test cannot hang forever
+    var c = document.getElementById('c'), i = 0, t = performance.now();
+    while (c.firstChild && i < 200000) { c.removeChild(c.firstChild); i++; }
+    r.removeChildLoop = { iterations: i, ms: Math.round(performance.now() - t), left: c.childNodes.length };
+    var d = document.getElementById('d'); i = 0; t = performance.now();
+    while (d.firstElementChild && i < 200000) { d.firstElementChild.remove(); i++; }
+    r.removeLoop = { iterations: i, ms: Math.round(performance.now() - t), left: d.children.length };
+    var e = document.getElementById('e'); i = 0; t = performance.now();
+    while (e.innerHTML !== '' && i < 200000) { e.innerHTML = ''; i++; }
+    r.innerHTMLLoop = { iterations: i, ms: Math.round(performance.now() - t) };
+    // single removal of protected node (the intended protection): should still be refused once
+    // single deliberate removals (anti-adblock style) in a later task — must stay refused
+    setTimeout(function () {
+      var f = document.getElementById('f'); f.removeChild(document.getElementById('fp'));
+      document.getElementById('gw').remove();
+      document.getElementById('e2') ;
+      r.singleRemovalBlocked = { removeChild: !!document.getElementById('fp'), remove: !!document.getElementById('gw') };
+      window.__result = r;
+    }, 50);
+  }, 800);
+</script>
+</body></html>

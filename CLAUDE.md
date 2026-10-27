@@ -18,6 +18,31 @@ Repozytorium: `Bonaventura-EW/adblock`, branch główny: `main`.
   `6.X`, data, „co i dlaczego"). Numer podbij SPÓJNIE w: `manifest.json` →
   `version`, nagłówku `content.js`, markerze `window.__adblockSpoof` w
   `content.js`. Zip zbuduj `npm run build` (nazwa bierze wersję z manifestu).
+- **Zmiana poza rozszerzeniem** (testy, dokumentacja, narzędzia — ZIP się nie
+  zmienia): wpis w `CHANGELOG.md` jako `## Repozytorium (RRRR-MM-DD) — bez
+  nowej wersji rozszerzenia`, bez podbijania numeru i bez nowego ZIP-a.
+
+### ⚠️ Zasada: SPRAWY.md — rejestr spraw (decyzja użytkownika, 2026-10-27)
+
+- **Na starcie sesji przeczytaj `SPRAWY.md`** (razem z `CHANGELOG.md`): co jest
+  otwarte, na co czekamy (potwierdzenie użytkownika, odpowiedź na pytanie).
+- **Każde zgłoszenie, prośbę, ustalenie z dochodzenia i pytanie bez odpowiedzi
+  dopisz od razu** jako nową sprawę `S-NN` — także takie, które nie kończą się
+  zmianą w kodzie.
+- **Nic nie kasuj.** Postęp dopisuj w „Stan" z datą. Rozwiązaną sprawę
+  przenieś do „Rozwiązane" z dopiskiem `✅ Rozwiązane: vX.Y (data)` — jak i
+  czym potwierdzone. Poprawka wydana, ale niepotwierdzona przez użytkownika =
+  „Stan: czeka na potwierdzenie", sprawa zostaje otwarta.
+- Kiedy użytkownik przyśle raport albo potwierdzenie — zaktualizuj sprawę.
+
+### ⚠️ Zasada: testy (`npm test`, tests/README.md)
+
+- **`npm test` przed każdym pushem** — 15 testów regresji (ok. 3 min, bez
+  sieci). Każdy pilnuje konkretnej poprawki; czerwony = cofnięta poprawka.
+- **Nowy błąd → najpierw odtwórz go** stroną w `tests/site/` i testem w
+  `tests/cases/` (ma być czerwony na starej wersji), potem popraw kod. Dopisz
+  test do tabeli w `tests/README.md` i podaj go w sprawie w `SPRAWY.md`.
+- Starą wersję sprawdzisz przez `SPOOF_EXT=/rozpakowany/zip npm test -- słowo`.
 
 ### Zasady pracy z gałęziami (lekcja z porządków przy v6.10/6.11)
 
@@ -74,8 +99,12 @@ icons/               16/32/48/128px PNG (neonowe zielone koło + żółty bolt)
                      + icon*-red.png (czerwone koło — karta zużywa dużo RAM-u)
 scripts/lint.mjs     walidacja składni + JSON + zakresu (npm run lint)
 scripts/build-zip.mjs budowa paczki instalacyjnej (npm run build)
-package.json         "lint" + "build"
+scripts/extension-files.mjs  lista plików rozszerzenia (ZIP i testy — jedno źródło)
+tests/               testy regresji (npm test): lib.cjs, run.cjs, cases/, site/,
+                     tools/wp-bench.cjs (RAM na prawdziwej stronie, z siecią)
+package.json         "lint" + "build" + "test"
 CHANGELOG.md         pełna historia wersji (CO i DLACZEGO)
+SPRAWY.md            rejestr spraw: zgłoszenia, ustalenia, otwarte pytania, stan
 README.md            dokumentacja dla użytkownika
 ```
 
@@ -408,7 +437,10 @@ Po każdej zmianie w kodzie rozszerzenia, ZAWSZE w tej kolejności:
 2. **Dopisz wpis do `CHANGELOG.md`** (na górze, format jak istniejące wpisy:
    `## vX.Y (RRRR-MM-DD)`, sekcje Nowe/Poprawki/itd.) — opis CO i DLACZEGO,
    żeby zachować pełną historię na przyszłość.
-3. `npm run lint` — walidacja.
+   **Zaktualizuj `SPRAWY.md`** — sprawa, której dotyczy zmiana (stan /
+   ✅ rozwiązane), nowe ustalenia i pytania.
+3. `npm run lint` — walidacja; **`npm test`** — testy regresji (wszystkie
+   zielone; nowy błąd = nowy test).
 4. **`npm run build`** — na `main` (zaktualizowanym z `origin/main`) buduje
    `adblock-vivaldi-v<wersja>.zip` (skrypt `scripts/build-zip.mjs`; czyta wersję
    z `manifest.json`, pakuje tylko pliki rozszerzenia, usuwa stare paczki
@@ -440,5 +472,6 @@ prześlizgnie:
 ## Walidacja
 
 ```bash
-npm run lint   # node --check na .js + JSON + zakres *://*/*
+npm run lint   # node --check na .js/.mjs/.cjs + JSON + zakres *://*/*
+npm test       # testy regresji w Chromium (Playwright), ok. 3 min — tests/README.md
 ```

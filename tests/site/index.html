@@ -1,0 +1,44 @@
+<!doctype html>
+<!-- Ściany „wyłącz adblocka" (nakładka, ściany w artykule), przynęty (bait), losowe klasy WP z __INIT_CONFIG__. -->
+<html><head><meta charset="utf-8"><title>t</title>
+<script>
+  // simulate WP config with random classes (before DOM)
+  window.__INIT_CONFIG__ = { randomClasses: { screeningWallpaper: 'scrw_abc', slot15ScreeningWallpaper: 'scr15_def' } };
+  // simulate real GPT loaded with its own destroySlots
+  window.__realDestroy = function realDestroy(s) { window.__destroyCalls = (window.__destroyCalls || 0) + 1; return !!s; };
+</script>
+<style>.adsbox{display:none}</style>
+</head><body>
+<div id="wrap"><p id="bigtext"></p></div>
+<div class="adsbox" id="bait1">bait</div>
+<div id="adsbox" style="display:none">idbait</div>
+<div class="screen scrw_abc" id="wp-screen">screening</div>
+<div class="article-content" id="ac">
+  <div id="ac-keep">normal paragraph text</div>
+  <div id="ac-wall" style="position:absolute;width:300px;height:200px">Wygląda na to, że blokujesz reklamy</div>
+  <div id="ac-nested"><div id="ac-deep" style="position:absolute;width:300px;height:200px">Wygląda na to, że blokujesz reklamy</div></div>
+  <section id="ac-sec" style="position:fixed;z-index:2000;width:300px;height:200px;top:0;left:0">Wyłącz adblocka teraz</section>
+  <span id="ac-span" style="position:absolute;width:300px;height:200px;display:block">Wyłącz adblocka teraz</span>
+</div>
+<script>
+  // big wrapper > 5000 chars containing a signature: must NOT be removed
+  document.getElementById('bigtext').textContent = 'lorem ipsum '.repeat(600) + ' wyłącz adblocka ';
+  window.googletag = window.googletag || {};
+</script>
+<script>
+  setTimeout(function () {
+    // popup appears later (like real walls)
+    var d = document.createElement('div');
+    d.id = 'popup';
+    d.style.cssText = 'position:fixed;top:0;left:0;width:500px;height:400px;z-index:99999';
+    d.textContent = 'Zauważyliśmy, że używasz AdBlocka. Wyłącz adblocka.';
+    document.body.appendChild(d);
+    // tiny popup (below 50px) must survive
+    var t = document.createElement('div');
+    t.id = 'tiny';
+    t.style.cssText = 'position:fixed;top:0;left:0;width:20px;height:20px;z-index:99999;overflow:hidden';
+    t.textContent = 'wyłącz adblocka';
+    document.body.appendChild(t);
+  }, 300);
+</script>
+</body></html>

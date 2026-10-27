@@ -1,0 +1,8 @@
+<!doctype html>
+<!-- Przycięcia (v6.21): 3-sekundowe długie zadania co 8 s — diagnoza ma je odróżnić od zawieszenia. --><html><head><meta charset="utf-8"><title>freeze</title></head><body><p>freeze</p>
+<script>
+  // freezes 3 s every 8 s, otherwise idle (transient long tasks, not a hang)
+  function longTask() { var t = Date.now(); while (Date.now() - t < 3000) { Math.sqrt(Math.random()); } }
+  window.addEventListener('load', function () { setTimeout(function tick() { longTask(); setTimeout(tick, 8000); }, 3000); });
+</script>
+</body></html>

@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "lint": "node scripts/lint.mjs",
-    "build": "node scripts/build-zip.mjs"
+    "build": "node scripts/build-zip.mjs",
+    "test": "node tests/run.cjs"
   }
 }

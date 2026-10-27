@@ -1,0 +1,10 @@
+<!doctype html>
+<!-- Zwykłe „schowaj ponownie" (v6.22/6.23): strona chowa zdjęcie 3× timerami — rozszerzenie ma je odsłaniać po staremu, bez arkusza USER. --><html><head><meta charset="utf-8"><title>fight2</title><script>window.WP = [];</script></head><body>
+<article><figure id="fig"><img id="im" class="wp-media-image" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAeCAIAAADRv8uKAAAAK0lEQVR4nO3NMQ0AAAgDsElBCtKQjgw4mvRvputExGKxWCwWi8VisVj8N17ahxo9rJVIzAAAAABJRU5ErkJggg=="></figure><p>tekst</p></article>
+<script>
+  // Strona chowa zdjęcie raz po wczytaniu i jeszcze 2× później (timery) — normalne „schowaj ponownie"
+  window.addEventListener('load', function () {
+    var im = document.getElementById('im');
+    [1500, 4000, 7000].forEach(function (ms) { setTimeout(function () { im.style.setProperty('display', 'none', 'important'); }, ms); });
+  });
+</script></body></html>

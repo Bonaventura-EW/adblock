@@ -141,8 +141,12 @@ Następnie uruchom walidację i przeładuj rozszerzenie.
 ## Rozwój i walidacja
 
 ```bash
-npm run lint   # node --check na .js + walidacja manifest/rules + zakresu
+npm run lint   # node --check na .js/.mjs/.cjs + walidacja manifest/rules + zakresu
+npm test       # testy regresji w Chromium (Playwright), ok. 3 min — opis: tests/README.md
 ```
+
+Historia: `CHANGELOG.md` (co zmieniono w kodzie i dlaczego) oraz `SPRAWY.md`
+(zgłoszenia, ustalenia, otwarte pytania i co zostało rozwiązane).
 
 Folder `_metadata/` jest generowany przez przeglądarkę i ignorowany przez git.
 
@@ -153,13 +157,15 @@ manifest.json      konfiguracja MV3 (zakres *://*/*)
 content.js         rdzeń: warstwa lekka + detekcja + warstwa ciężka (MAIN world)
 background.js      service worker: dynamiczna rejestracja, licznik, pomiar RAM,
                    czerwona ikona, auto-pomiar
-bridge.js          most ISOLATED ↔ SW (licznik)
+bridge.js          most ISOLATED ↔ SW (licznik, arkusz odsłaniający zdjęcie)
 memcheck.js        progi i powody „dużo pamięci"
 monitor.js         tanie wskaźniki pamięci karty (co 30 s)
 popup.html/js      wyłączanie per domena/adres, licznik, pamięć karty, raport
+diag.html          strona startowa karty diagnozy
 rules/rules.json   reguły declarativeNetRequest (adblock-check, GPT)
 fake-scripts/      oryginalne skrypty Google (nie modyfikować)
-scripts/lint.mjs   walidacja
+scripts/           lint, budowa ZIP, lista plików rozszerzenia
+tests/             testy regresji (npm test) i narzędzie pomiaru RAM
 ```
 
 ## Pomysły na przyszłość
@@ -169,8 +175,8 @@ scripts/lint.mjs   walidacja
 - Obsługa Shadow DOM (część ścian renderuje się w shadow root).
 - Badge na ikonie z licznikiem per karta.
 - Tryb „strict" per domena (warstwa ciężka od startu, bez czekania na detekcję).
-- Testy regresji (jsdom + fixtury HTML): brak fałszywych trafień na zwykłych
-  modalach (cookie itp.).
+- Test braku fałszywych trafień na zwykłych modalach (cookie itp.) — do
+  dopisania w `tests/` (testy regresji już są: `npm test`).
 
 ## Zastrzeżenie
 

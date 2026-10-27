@@ -1,0 +1,9 @@
+<!doctype html>
+<!-- Duży DOM (20 000 elementów) → monitor zgłasza poziom 1 → znaczek „RAM". --><html><head><meta charset="utf-8"><title>big</title></head><body>
+<p>Strona testowa z dużym DOM.</p>
+<script>
+  var f = document.createDocumentFragment();
+  for (var i = 0; i < 20000; i++) { var d = document.createElement('div'); d.textContent = 'x' + i; f.appendChild(d); }
+  document.body.appendChild(f);
+</script>
+</body></html>

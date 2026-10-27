@@ -1,0 +1,16 @@
+<!doctype html>
+<!-- Pilnowane zdjęcie (v6.22/6.23): strona chowa zdjęcie i pilnuje go WŁASNYM MutationObserverem. Przed v6.22 nieskończona pętla (karta wisi, RAM rośnie); od v6.23 zdjęcie widoczne przez arkusz USER, styl inline zostaje „none". --><html><head><meta charset="utf-8"><title>guarded-img</title><script>window.WP = [];</script></head><body>
+<article><figure id="fig"><img id="im" class="wp-media-image" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAeCAIAAADRv8uKAAAAK0lEQVR4nO3NMQ0AAAgDsElBCtKQjgw4mvRvputExGKxWCwWi8VisVj8N17ahxo9rJVIzAAAAABJRU5ErkJggg=="></figure><p>tekst</p></article>
+<script>
+  // Strona chowa zdjęcie i pilnuje go WŁASNYM MutationObserverem (jak „schowaj ponownie")
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      var im = document.getElementById('im');
+      new MutationObserver(function () {
+        if (im.style.display !== 'none') im.style.setProperty('display', 'none', 'important');
+      }).observe(im, { attributes: true, attributeFilter: ['style'] });
+      im.style.setProperty('display', 'none', 'important');
+      window.__hiddenAt = Date.now();
+    }, 1500);
+  });
+</script></body></html>

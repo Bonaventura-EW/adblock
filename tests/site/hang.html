@@ -1,0 +1,4 @@
+<!doctype html>
+<!-- Karta zawieszona na 120 s (1 s po wczytaniu) — źródło dla testów „inna karta wisi" i „wspólny proces". --><html><head><meta charset="utf-8"><title>hang</title></head><body><p>hang</p>
+<script>window.addEventListener('load', function () { setTimeout(function () { var t = Date.now(); while (Date.now() - t < 120000) { Math.sqrt(Math.random()); } }, 1000); });</script>
+</body></html>

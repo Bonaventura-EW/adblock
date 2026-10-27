@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Lekka walidacja repozytorium (bez zależności).
-//  • składnia wszystkich plików .js (node --check),
+//  • składnia wszystkich plików .js/.mjs/.cjs (node --check, także testy),
 //  • poprawność JSON: manifest.json, rules/rules.json,
 //  • zakres uniwersalny: host_permissions i web_accessible_resources = *://*/*.
 
@@ -21,7 +21,7 @@ function walk(dir) {
     const p = join(dir, name);
     const st = statSync(p);
     if (st.isDirectory()) { walk(p); continue; }
-    if (!name.endsWith('.js') && !name.endsWith('.mjs')) continue;
+    if (!/\.(js|mjs|cjs)$/.test(name)) continue;
     if (p.includes(`${'fake-scripts'}`)) continue; // pomiń kod Google
     try {
       execFileSync(process.execPath, ['--check', p], { stdio: 'pipe' });

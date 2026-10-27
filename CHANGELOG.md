@@ -1,5 +1,38 @@
 # Changelog
 
+## Repozytorium (2026-10-27) — bez nowej wersji rozszerzenia
+
+Rozszerzenie i ZIP bez zmian (nadal v6.23). Prośba użytkownika: spisywać
+uwagi z każdej iteracji, także na przyszłość, i dopisywać, kiedy coś zostało
+rozwiązane.
+
+### Nowe
+- **`SPRAWY.md` — rejestr spraw.** Zgłoszenia, prośby, ustalenia z dochodzeń,
+  pytania bez odpowiedzi i ich stan; rozwiązane oznaczone
+  `✅ Rozwiązane: vX.Y (data)` z tym, czym je potwierdzono. Uzupełniony wstecz
+  od v6.4 (S-01…S-20). Otwarte: zdjęcie na wiadomosci.wp.pl czeka na
+  potwierdzenie (S-16), pytanie o bloker (S-17), AdBlock do ponownego
+  sprawdzenia (S-04), stare gałęzie (S-18), Shadow DOM (S-19).
+- **Testy regresji `npm test`** (`tests/`, 15 testów, ok. 3 min, bez sieci).
+  Wcześniej te testy istniały tylko w katalogu roboczym sesji i przepadałyby
+  po jej końcu. Każdy test pilnuje konkretnej poprawki (rejestracja, ściany i
+  przynęty, ochrona DOM, pilnowane zdjęcie, przełączniki, wyłączanie
+  domeny/adresu, raport, pomiar RAM, zawieszona karta, diagnoza — także we
+  wspólnym procesie). Sprawdzone na starych wersjach: v6.20, v6.21 i v6.22
+  dają czerwone testy dokładnie tam, gdzie brakowało poprawki.
+  `SPOOF_EXT=/ścieżka npm test` testuje dowolną rozpakowaną wersję.
+- **`tests/tools/wp-bench.cjs`** — pomiar RAM na prawdziwej stronie z
+  rozszerzeniem i bez (wymaga sieci; poza `npm test`).
+- **`scripts/extension-files.mjs`** — jedna lista plików rozszerzenia dla ZIP-a
+  i testów (testy ładują dokładnie to, co trafia do paczki). Paczka v6.23 po
+  zmianie identyczna bajt w bajt.
+- `npm run lint` sprawdza też pliki `.cjs`.
+
+### Proces
+- `CLAUDE.md`: zasady `SPRAWY.md` (czytaj na starcie, dopisuj od razu, nic nie
+  kasuj, ✅ dopiero po potwierdzeniu), `npm test` przed każdym pushem, nowy
+  błąd = najpierw test, wpis w CHANGELOG dla zmian bez nowej wersji.
+
 ## v6.23 (2026-10-27)
 
 ### Naprawione

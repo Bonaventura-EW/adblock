@@ -10,6 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, rmSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { EXTENSION_FILES } from './extension-files.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -17,21 +18,8 @@ const manifest = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8'));
 const version = manifest.version;
 const zipName = `adblock-vivaldi-v${version}.zip`;
 
-// Pliki/katalogi wchodzące do paczki.
-const INCLUDE = [
-  'manifest.json',
-  'content.js',
-  'background.js',
-  'bridge.js',
-  'memcheck.js',
-  'monitor.js',
-  'popup.html',
-  'popup.js',
-  'diag.html',
-  'rules',
-  'fake-scripts',
-  'icons'
-];
+// Pliki/katalogi wchodzące do paczki (wspólna lista z testami).
+const INCLUDE = EXTENSION_FILES;
 
 for (const entry of INCLUDE) {
   if (!existsSync(join(root, entry))) {
