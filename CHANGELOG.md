@@ -1,5 +1,38 @@
 # Changelog
 
+## v6.24 (2026-10-27)
+
+### Nowe
+- **Podział RAM-u karty na procesy ramek z nazwą serwisu.** Pytanie
+  użytkownika: „jedna strona i prawie 600 MB — jaka jest struktura, co jest
+  winne?". Raport podawał tylko sumy: proces strony 154–237 MB + 8 procesów
+  ramek 325–345 MB. Teraz:
+  - `precise.procs` (raport) — każdy proces karty: MB, liczba ramek, serwisy
+    (do 15 procesów, od największego);
+  - popup: „Ramki z innych serwisów: pubmatic.com 31 MB · adnxs.com 30 MB · …";
+  - powód w ocenie, gdy ramki zajmują więcej niż strona: „Większość to ramki z
+    innych serwisów (…) — zwykle reklamy i śledzenie, każda we własnym
+    procesie. Ogranicza je bloker reklam."
+- **Ustalenia (artykuł z wiadomosci.wp.pl, Chromium):**
+  - bez blokera 1154–1334 MB, 36–39 procesów;
+  - AdBlock 6.50: 350–359 MB, strona + 8 procesów ramek po ok. 30 MB
+    (pubmatic, adnxs, rubiconproject, indexww, casalemedia, openx, criteo,
+    visx) — ten sam profil co w raporcie użytkownika;
+  - uBlock Origin Lite: 105–106 MB, jeden proces.
+  Przy każdym blokerze z rozszerzeniem i bez niego wynik był ten sam (106/105,
+  350/359 MB), więc RAM-u nie dokłada spoof, tylko ramki „synchronizacji
+  ciasteczek" firm reklamowych, których bloker nie zatrzymuje.
+- `siteOf()` nie skraca adresów IP.
+- Test: `npm test -- "podział RAM"` (strona z ramkami z innego serwisu —
+  localhost ≠ 127.0.0.1); na v6.23 czerwony, na v6.24 zielony.
+- Testy: `rawLaunch` czeka na workera rozszerzenia do 30 s (było 18 s), ma
+  limit połączenia i w błędzie podaje, co widział. W jednym pełnym przebiegu
+  worker nie zdążył wstać; osobno przeszło 4/4, potem pełny przebieg 16/16.
+
+### Potwierdzone
+- **v6.23 działa u użytkownika:** pierwsze zdjęcie na wiadomosci.wp.pl
+  widoczne (zrzut ekranu), w raporcie `revealGaveUp: 1`, `revealCss: 1`.
+
 ## Repozytorium (2026-10-27) — bez nowej wersji rozszerzenia
 
 Rozszerzenie i ZIP bez zmian (nadal v6.23). Prośba użytkownika: spisywać

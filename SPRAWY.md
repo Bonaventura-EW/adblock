@@ -23,20 +23,27 @@ problemem przyszedł użytkownik i czy problem naprawdę zniknął**.
 
 ## Otwarte
 
-### S-16: Pierwsze zdjęcie artykułu niewidoczne na wiadomosci.wp.pl
-- **Zgłoszono:** 2026-10-27, v6.22 (raport z
-  `wiadomosci.wp.pl/sfalszowala-wybory-…-7344357483726880a`).
-- **Objawy:** RAM już nie rośnie (S-15), ale pierwsze zdjęcie jest schowane.
-  Użytkownik sądzi, że to skutek pracy blokera reklam.
-- **Ustalenia:** w raporcie `revealGaveUp: 1` — zdjęcia pilnował czyjś
-  obserwator (strony albo blokera). Bezpiecznik z v6.22 odpuścił po 5
-  próbach, więc zdjęcie zostało schowane. W Chromium bez Vivaldi (uBlock
-  Origin Lite, AdBlock 6.50) zdjęcie na tym artykule jest widoczne — chowanie
-  występuje tylko w zestawie użytkownika.
-- **Stan:** 2026-10-27 — v6.23: odsłonięcie arkuszem `origin: 'USER'` bez
-  przepychanki. Czeka na potwierdzenie użytkownika (w raporcie powinno być
-  `revealCss` ≥ 1).
-- **Test:** `npm test -- pilnowane`.
+### S-21: Prawie 600 MB RAM-u na jednym artykule — co to jest?
+- **Zgłoszono:** 2026-10-27, v6.23 (zrzut popupu: 582 MB = strona 237 MB +
+  ramki w osobnych procesach 345 MB (8); raport: 479 MB = 154 + 325 MB (8),
+  sterta JS 24 MB, DOM 14 MB, warstwa ciężka 66–80 ms CPU).
+- **Ustalenia (2026-10-27, ten sam artykuł w Chromium, z rozszerzeniem / bez):**
+  - bez blokera: 1154–1334 MB, 36–39 procesów — ramki „synchronizacji
+    ciasteczek" kilkudziesięciu firm reklamowych, każda w osobnym procesie
+    (~25–50 MB);
+  - AdBlock 6.50: 350–359 MB = strona + 8 procesów ramek po ~30 MB
+    (pubmatic, adnxs, rubiconproject, indexww, casalemedia, openx, criteo,
+    visx) — ten sam profil co u użytkownika;
+  - uBlock Origin Lite: 105–106 MB, jeden proces;
+  - rozszerzenie (spoof) nie zmienia wyniku przy żadnym blokerze (106/105,
+    350/359 MB); jego własna praca na stronie to ~70 ms CPU.
+  Wniosek: ~60% RAM-u karty to ramki reklam/śledzenia przepuszczane przez
+  bloker użytkownika; proces strony (150–240 MB) to sama strona WP.
+- **Stan:** 2026-10-27 — v6.24: popup i raport pokazują podział na ramki z
+  nazwą serwisu („Ramki z innych serwisów: …"). Czeka na odpowiedź
+  użytkownika: jaki bloker (S-17); propozycja — uBlock Origin / uBO Lite
+  (artykuł ~105 MB zamiast ~350–580 MB).
+- **Test:** `npm test -- "podział RAM"`.
 
 ### S-17: Jakiego blokera reklam używa użytkownik?
 - **Zgłoszono:** pytanie zadane kilka razy 2026-10-26/27 — bez odpowiedzi.
@@ -45,6 +52,10 @@ problemem przyszedł użytkownik i czy problem naprawdę zniknął**.
   uBlock Origin.
 - **Stan:** czeka na odpowiedź. Przy każdym zgłoszeniu „zjada RAM" zapytaj o
   listę rozszerzeń.
+- **Stan 2026-10-27:** poszlaka — profil RAM-u u użytkownika (strona + 8
+  procesów ramek reklamowych, S-21) jest taki sam jak w teście z AdBlockiem
+  6.50; z uBO Lite tych ramek nie ma. Na zrzucie z paska narzędzi widać kilka
+  rozszerzeń; nazwy blokera z niego nie da się pewnie odczytać.
 
 ### S-04: AdBlock (getadblock) + spoof = lawinowy RAM na portalach WP
 - **Zgłoszono:** 2026-07, AdBlock 6.43 (potwierdzone przez użytkownika: po
@@ -55,6 +66,10 @@ problemem przyszedł użytkownik i czy problem naprawdę zniknął**.
   + v6.21, Chromium) pętli nie było.
 - **Stan:** do ponownego sprawdzenia po v6.22 — czy AdBlock nadal jest
   niekompatybilny. Do tego czasu w README/CLAUDE.md zostaje ostrzeżenie.
+- **Stan 2026-10-27:** test w Chromium, AdBlock 6.50 + v6.23 na artykule z
+  wiadomosci.wp.pl: bez pętli, RAM taki sam z rozszerzeniem i bez (350 / 359
+  MB). Brakuje jeszcze potwierdzenia u użytkownika (Vivaldi), że RAM nie
+  rośnie w czasie.
 
 ### S-18: Stare gałęzie na GitHubie do usunięcia
 - **Zgłoszono:** 2026-10-26 — proxy git odrzuca usuwanie gałęzi (HTTP 403).
@@ -71,6 +86,24 @@ problemem przyszedł użytkownik i czy problem naprawdę zniknął**.
 ---
 
 ## Rozwiązane
+
+### S-16: Pierwsze zdjęcie artykułu niewidoczne na wiadomosci.wp.pl
+- **Zgłoszono:** 2026-10-27, v6.22 (raport z
+  `wiadomosci.wp.pl/sfalszowala-wybory-…-7344357483726880a`).
+- **Objawy:** RAM już nie rośnie (S-15), ale pierwsze zdjęcie jest schowane.
+  Użytkownik sądzi, że to skutek pracy blokera reklam.
+- **Ustalenia:** w raporcie `revealGaveUp: 1` — zdjęcia pilnował czyjś
+  obserwator (strony albo blokera). Bezpiecznik z v6.22 odpuścił po 5
+  próbach, więc zdjęcie zostało schowane. W Chromium bez Vivaldi (uBlock
+  Origin Lite, AdBlock 6.50) zdjęcie na tym artykule jest widoczne — chowanie
+  występuje tylko w zestawie użytkownika.
+- **Stan:** 2026-10-27 — v6.23: odsłonięcie arkuszem `origin: 'USER'` bez
+  przepychanki.
+- ✅ **Rozwiązane: v6.23 (2026-10-27)** — potwierdzone przez użytkownika tego
+  samego dnia: zrzut ekranu (zdjęcie widoczne na
+  `wiadomosci.wp.pl/nowy-sondaz-w-usa-…-7344451083147360a`) i raport z
+  `revealGaveUp: 1`, `revealCss: 1`.
+- **Test:** `npm test -- pilnowane`.
 
 ### S-20: Testy i rejestr spraw w repozytorium
 - **Zgłoszono:** 2026-10-27 — użytkownik: „czy wszystkie uwagi z każdej

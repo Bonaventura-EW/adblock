@@ -37,7 +37,7 @@ Repozytorium: `Bonaventura-EW/adblock`, branch główny: `main`.
 
 ### ⚠️ Zasada: testy (`npm test`, tests/README.md)
 
-- **`npm test` przed każdym pushem** — 15 testów regresji (ok. 3 min, bez
+- **`npm test` przed każdym pushem** — 16 testów regresji (ok. 3 min, bez
   sieci). Każdy pilnuje konkretnej poprawki; czerwony = cofnięta poprawka.
 - **Nowy błąd → najpierw odtwórz go** stroną w `tests/site/` i testem w
   `tests/cases/` (ma być czerwony na starej wersji), potem popraw kod. Dopisz
@@ -172,7 +172,11 @@ Zwykłe API nie dają RAM-u karty: `chrome.processes` jest tylko w kanale Dev, a
    Menedżer zadań; procesy karty z `TracingStartedInBrowser.args.data.frames`
    (`processId`; ramka bez `parent` = proces strony). Wynik młodszy niż
    `maxAgeMs` (popup: 20 s) wraca z pamięci SW; równoległe prośby o tę samą
-   kartę czekają na jeden pomiar. Przeglądarka pokazuje pasek „debuguje" przez
+   kartę czekają na jeden pomiar. **Podział (v6.24):** `procs[]` — każdy proces
+   karty (MB, ramki, serwisy z adresów ramek), popup „Ramki z innych
+   serwisów", powód w `memcheck` gdy ramki > strona. Na portalach WP większość
+   RAM-u karty to ramki reklam/śledzenia (każda ~25–50 MB we własnym procesie);
+   ile ich zostaje, zależy od blokera (uBO Lite: 0, AdBlock: ~8). Przeglądarka pokazuje pasek „debuguje" przez
    kilka sekund (można go ukryć flagą `--silent-debugger-extension-api`).
 3. **Ikona i znaczek** — stan per karta w `storage.session` (`tm:<tabId>`:
    `monitorLevel`, `ramMB`, `ramT`), zapisy serializowane per karta

@@ -70,8 +70,17 @@ var AdblockSpoofMem = (function () {
     }
 
     if (precise && !precise.error) {
+      // v6.24: gdy ramki zajmują więcej niż sama strona — powiedz, czyje są.
+      var frameProcs = (precise.procs || []).filter(function (p) { return !p.main; });
+      var why = '';
+      if (precise.subframesMB > precise.mainMB && frameProcs.length) {
+        why = ' Większość to ramki z innych serwisów (' + frameProcs.slice(0, 3)
+          .map(function (p) { return p.sites[0] || '?'; }).join(', ') +
+          (frameProcs.length > 3 ? '…' : '') + ') — zwykle reklamy i śledzenie, każda we własnym ' +
+          'procesie. Ogranicza je bloker reklam.';
+      }
       add(levelOf('tabMB', precise.tabMB), 'Karta zużywa ' + precise.tabMB + ' MB RAM (proces strony ' +
-        precise.mainMB + ' MB + ramki w osobnych procesach ' + precise.subframesMB + ' MB).');
+        precise.mainMB + ' MB + ramki w osobnych procesach ' + precise.subframesMB + ' MB).' + why);
       add(levelOf('jsHeapMB', precise.jsHeapMB), 'Sterta JS strony: ' + precise.jsHeapMB + ' MB.');
       add(levelOf('domHeapMB', precise.domHeapMB), 'Obiekty DOM (Blink): ' + precise.domHeapMB + ' MB.');
       add(levelOf('listeners', precise.listeners), 'Nasłuchiwacze zdarzeń JS: ' + precise.listeners + '.');

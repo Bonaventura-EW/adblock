@@ -152,7 +152,10 @@ async function rawLaunch(ext, extraArgs = []) {
   };
   const connect = async (t) => {
     const ws = new WebSocket(t.webSocketDebuggerUrl);
-    await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
+    await Promise.race([
+      new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; }),
+      sleep(2000).then(() => { throw new Error('websocket: brak połączenia w 2 s'); })
+    ]);
     let id = 0;
     const pending = {};
     ws.onmessage = (m) => {
@@ -172,24 +175,27 @@ async function rawLaunch(ext, extraArgs = []) {
     };
     return { ws, sw };
   };
+  const seen = {};
   try {
-    for (let i = 0; i < 60; i++) {
+    // Do 30 s: pod obciążeniem (po wielu testach) worker potrafi wstawać dłużej.
+    for (let i = 0; i < 100; i++) {
       await sleep(300);
       let list = [];
-      try { list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json(); } catch (e) { continue; }
+      try { list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json(); } catch (e) { seen.http = e.message; continue; }
       for (const t of list.filter((x) => x.type === 'service_worker' && x.url.startsWith('chrome-extension://'))) {
         try {
           const c = await connect(t);
-          const who = await Promise.race([c.sw('return chrome.runtime.getManifest().name + "|" + typeof chrome.storage'), sleep(1500)]);
+          const who = await Promise.race([c.sw('return chrome.runtime.getManifest().name + "|" + typeof chrome.storage'), sleep(3000)]);
+          seen[t.url] = String(who);
           if (who === NAME + '|object') {
             await c.sw('await chrome.storage.local.set({ autoRam: false });');
             return { sw: c.sw, close: () => { try { c.ws.close(); } catch (e) {} close(); } };
           }
           c.ws.close();
-        } catch (e) { /* inny worker albo jeszcze nie gotowy */ }
+        } catch (e) { seen[t.url] = 'błąd: ' + e.message; }
       }
     }
-    throw new CheckError('service worker rozszerzenia nie wystartował (rawLaunch)');
+    throw new CheckError('service worker rozszerzenia nie wystartował (rawLaunch); widziane: ' + JSON.stringify(seen));
   } catch (e) {
     close();
     throw e;

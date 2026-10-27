@@ -32,6 +32,7 @@ wskazującym na globalne `node_modules`.
 | popup | wyłączanie domeny i adresu (także z ?query) | v6.13, v6.15 |
 | popup | raport: kopiuj / pobierz .json | format raportu, który użytkownik wkleja |
 | pamiec | pomiar RAM karty i znaczek „RAM" | v6.15 |
+| pamiec | podział RAM na procesy ramek z nazwą serwisu | v6.24 |
 | pamiec | zawieszona karta → „nie odpowiada", „!" | v6.17, v6.18 |
 | pamiec | zawieszona karta w tle nie blokuje pomiaru | v6.20 (limit 3 s zrzutu) |
 | diagnoza | zawieszona strona → stos | v6.19–v6.21 |
@@ -46,6 +47,7 @@ Każda strona ma na górze komentarz z opisem, co odtwarza.
 - `index.html` — ściany, przynęty, losowe klasy WP.
 - `protect.html` — pętle czyszczące kontener.
 - `big.html` — duży DOM.
+- `frames.html` + `frame.html` — ramki z innego serwisu (localhost ≠ 127.0.0.1).
 - `guarded-img.html` — strona chowa zdjęcie i pilnuje go własnym obserwatorem.
 - `rehide.html` — zdjęcie chowane kilka razy timerami.
 - `loop.html` — zawieszenie na 40 s.

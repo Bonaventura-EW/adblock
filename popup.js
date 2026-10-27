@@ -304,6 +304,16 @@
     const age = Math.round((Date.now() - precise.t) / 1000);
     addLine(els.ramDetail, `Proces strony: ${precise.mainMB} MB` +
       (precise.subframeProcs ? ` + ramki w osobnych procesach: ${precise.subframesMB} MB (${precise.subframeProcs})` : ''));
+    // Kto zjada RAM (v6.24): największe procesy ramek z nazwą serwisu.
+    const frameProcs = (precise.procs || []).filter((p) => !p.main);
+    if (frameProcs.length) {
+      const shown = frameProcs.slice(0, 6);
+      const top = shown.map((p) => `${p.sites[0] || '?'} ${p.MB} MB`).join(' · ');
+      // procs ma najwyżej 15 pozycji — liczbę wszystkich ramek bierzemy z subframeProcs.
+      const rest = Math.max(precise.subframeProcs || 0, frameProcs.length) - shown.length;
+      const more = rest > 0 ? ` · i ${rest} innych` : '';
+      addLine(els.ramDetail, `Ramki z innych serwisów: ${top}${more}`);
+    }
     addLine(els.ramDetail, `Cała przeglądarka: ${precise.browserMB} MB (${precise.browserProcs} procesów)` +
       (age >= 3 ? ` · pomiar sprzed ${age} s` : ''));
   }

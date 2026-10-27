@@ -97,6 +97,13 @@ Ponowne otwarcie popupu w ciągu 20 s pokazuje poprzedni wynik;
 **Zmierz ponownie** mierzy od nowa. Pomiar działa też tam, gdzie rozszerzenie
 jest wyłączone, więc można porównać kartę z rozszerzeniem i bez.
 
+**Co zjada RAM.** Linia „Ramki z innych serwisów" pokazuje największe ramki
+karty z nazwą serwisu (np. `pubmatic.com 31 MB · adnxs.com 30 MB`). Każda
+ramka z innego serwisu ma w przeglądarce osobny proces (ok. 25–50 MB). Na
+portalach to zwykle reklamy i śledzenie — ich liczbę ogranicza bloker reklam.
+Na artykule z wiadomosci.wp.pl: z uBlock Origin Lite ok. 105 MB, z AdBlockiem
+ok. 350 MB, bez blokera ponad 1 GB.
+
 **Czerwona ikona.** Gdy karta zużywa ≥ 500 MB (albo strona ma bardzo duży DOM,
 dużo ramek lub obrazków), ikona na tej karcie robi się czerwona, a znaczek
 pokazuje liczbę MB (np. „620", „1.2G") albo „RAM". Rozszerzenie samo mierzy

@@ -29,6 +29,34 @@ module.exports = [
   },
 
   {
+    name: 'podział RAM na procesy ramek z nazwą serwisu',
+    guards: 'v6.24 (precise.procs, „Ramki z innych serwisów" w popupie) — odpowiedź na „co zjada RAM"',
+    async run({ ext, site }) {
+      const b = await launch(ext);
+      try {
+        const page = await b.ctx.newPage();
+        await page.goto(site + '/frames.html');
+        await page.waitForTimeout(2500);
+        const tab = await tabOf(b, page);
+        const m = await b.sw.evaluate((id) => measureTabCached(id, 0), tab.id);
+        check(!m.error && !m.ramError, 'pomiar się nie udał: ' + (m.error || m.ramError));
+        check(m.subframeProcs >= 1, 'ramki z innego serwisu bez osobnego procesu: ' + JSON.stringify(m));
+        const procs = m.procs || [];
+        const frameProc = procs.find((p) => !p.main && (p.sites || []).includes('localhost'));
+        check(frameProc && frameProc.MB > 0, 'brak procesu ramki „localhost" w podziale: ' + JSON.stringify(procs));
+        check(procs.some((p) => p.main && p.MB > 0), 'brak procesu strony w podziale');
+        const pop = await openPopup(b, tab);
+        await pop.waitForFunction(() => /Ramki z innych serwisów/.test(document.getElementById('ramDetail').textContent), null, { timeout: 15000 })
+          .catch(() => {});
+        const detail = await pop.textContent('#ramDetail');
+        check(/Ramki z innych serwisów: .*localhost \d+ MB/.test(detail), 'popup bez podziału ramek: ' + detail);
+      } finally {
+        await b.close();
+      }
+    }
+  },
+
+  {
     name: 'zawieszona karta → „nie odpowiada", czerwona ikona z „!"',
     guards: 'v6.17 (limit 10 s pomiaru), v6.18 (próbka 2 s → rendererBusy)',
     async run({ ext, site }) {

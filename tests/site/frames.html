@@ -1,0 +1,13 @@
+<!doctype html>
+<!-- Ramki z innego serwisu (v6.24): localhost ≠ 127.0.0.1, więc każda ramka ma osobny proces — pomiar ma pokazać, który serwis ile RAM-u zajmuje. -->
+<html><head><meta charset="utf-8"><title>frames</title></head><body>
+<p>Strona z ramkami z innego serwisu (jak ramki reklam i śledzenia na portalach).</p>
+<script>
+  for (var i = 1; i <= 2; i++) {
+    var f = document.createElement('iframe');
+    f.src = 'http://localhost:' + location.port + '/frame.html?n=' + i;
+    f.width = 300; f.height = 100;
+    document.body.appendChild(f);
+  }
+</script>
+</body></html>

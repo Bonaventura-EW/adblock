@@ -315,11 +315,30 @@ async function memoryDump(target) {
     .filter((pid) => pid !== main.processId && pid in footprint);
   const subBytes = subPids.reduce((sum, pid) => sum + footprint[pid], 0);
   const allBytes = Object.values(footprint).reduce((sum, b) => sum + b, 0);
+
+  // Podział na procesy (v6.24) — odpowiedź na „co zjada RAM". Ramka z innego
+  // serwisu (reklama, śledzenie, osadzenie) dostaje własny proces, ok. 25–50 MB
+  // każdy; na portalach WP to zwykle większość RAM-u karty. Serwis = dwa
+  // ostatnie człony hosta ramki.
+  const siteOfUrl = (u) => {
+    try { const h = new URL(u).hostname; return h ? siteOf(h) : null; } catch (e) { return null; }
+  };
+  const procs = [main.processId, ...subPids].map((pid) => {
+    const inProc = frames.filter((f) => f.processId === pid);
+    return {
+      MB: mb(footprint[pid]),
+      main: pid === main.processId,
+      frames: inProc.length,
+      sites: [...new Set(inProc.map((f) => siteOfUrl(f.url)).filter(Boolean))].slice(0, 3)
+    };
+  }).sort((a, b) => b.MB - a.MB).slice(0, 15);
+
   return {
     tabMB: mb(footprint[main.processId] + subBytes),
     mainMB: mb(footprint[main.processId]),
     subframesMB: mb(subBytes),
     subframeProcs: subPids.length,
+    procs,
     browserMB: mb(allBytes),
     browserProcs: Object.keys(footprint).length
   };
@@ -488,6 +507,7 @@ function describeSource(url, fn) {
 }
 
 function siteOf(host) {
+  if (/^\d+(\.\d+){3}$/.test(host)) return host; // adres IP — bez skracania
   return host.split('.').slice(-2).join('.');
 }
 
