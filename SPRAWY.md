@@ -43,19 +43,11 @@ problemem przyszedł użytkownik i czy problem naprawdę zniknął**.
   nazwą serwisu („Ramki z innych serwisów: …"). Czeka na odpowiedź
   użytkownika: jaki bloker (S-17); propozycja — uBlock Origin / uBO Lite
   (artykuł ~105 MB zamiast ~350–580 MB).
+- **Stan 2026-10-27:** użytkownik przeszedł na uBlock Origin Lite. Czeka na
+  potwierdzenie, że RAM karty spadł. Oczekiwane: brak procesów ramek
+  reklamowych, karta ok. 150–250 MB (w Chromium 105 MB; proces strony w
+  Vivaldi był większy — 154–237 MB).
 - **Test:** `npm test -- "podział RAM"`.
-
-### S-17: Jakiego blokera reklam używa użytkownik?
-- **Zgłoszono:** pytanie zadane kilka razy 2026-10-26/27 — bez odpowiedzi.
-- **Dlaczego ważne:** AdBlock (getadblock.com) był niekompatybilny (S-04);
-  chowanie zdjęcia (S-16) prawdopodobnie zależy od blokera; zalecany jest
-  uBlock Origin.
-- **Stan:** czeka na odpowiedź. Przy każdym zgłoszeniu „zjada RAM" zapytaj o
-  listę rozszerzeń.
-- **Stan 2026-10-27:** poszlaka — profil RAM-u u użytkownika (strona + 8
-  procesów ramek reklamowych, S-21) jest taki sam jak w teście z AdBlockiem
-  6.50; z uBO Lite tych ramek nie ma. Na zrzucie z paska narzędzi widać kilka
-  rozszerzeń; nazwy blokera z niego nie da się pewnie odczytać.
 
 ### S-04: AdBlock (getadblock) + spoof = lawinowy RAM na portalach WP
 - **Zgłoszono:** 2026-07, AdBlock 6.43 (potwierdzone przez użytkownika: po
@@ -70,6 +62,9 @@ problemem przyszedł użytkownik i czy problem naprawdę zniknął**.
   wiadomosci.wp.pl: bez pętli, RAM taki sam z rozszerzeniem i bez (350 / 359
   MB). Brakuje jeszcze potwierdzenia u użytkownika (Vivaldi), że RAM nie
   rośnie w czasie.
+- **Stan 2026-10-27:** użytkownik przeszedł na uBO Lite (S-17), więc
+  potwierdzenia z jego przeglądarki raczej nie będzie. Ostrzeżenie przed
+  AdBlockiem zostaje w README do czasu nowego testu.
 
 ### S-18: Stare gałęzie na GitHubie do usunięcia
 - **Zgłoszono:** 2026-10-26 — proxy git odrzuca usuwanie gałęzi (HTTP 403).
@@ -86,6 +81,22 @@ problemem przyszedł użytkownik i czy problem naprawdę zniknął**.
 ---
 
 ## Rozwiązane
+
+### S-17: Jakiego blokera reklam używa użytkownik?
+- **Zgłoszono:** pytanie zadane kilka razy 2026-10-26/27 — bez odpowiedzi.
+- **Dlaczego ważne:** AdBlock (getadblock.com) był niekompatybilny (S-04);
+  chowanie zdjęcia (S-16) prawdopodobnie zależy od blokera; zalecany jest
+  uBlock Origin.
+- **Stan:** czeka na odpowiedź. Przy każdym zgłoszeniu „zjada RAM" zapytaj o
+  listę rozszerzeń.
+- **Stan 2026-10-27:** poszlaka — profil RAM-u u użytkownika (strona + 8
+  procesów ramek reklamowych, S-21) jest taki sam jak w teście z AdBlockiem
+  6.50; z uBO Lite tych ramek nie ma. Na zrzucie z paska narzędzi widać kilka
+  rozszerzeń; nazwy blokera z niego nie da się pewnie odczytać.
+- ✅ **Rozwiązane: bez zmiany wersji (2026-10-27)** — użytkownik: „przeniosłem
+  się na uBlock Origin Lite". Poprzedniego blokera nie nazwał; profil RAM-u
+  (S-21) wskazywał na AdBlock lub podobny. Od teraz testy i porady zakładają
+  uBO Lite (MV3, reguły DNR).
 
 ### S-16: Pierwsze zdjęcie artykułu niewidoczne na wiadomosci.wp.pl
 - **Zgłoszono:** 2026-10-27, v6.22 (raport z

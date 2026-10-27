@@ -64,7 +64,11 @@ zepsułoby to spoof.
 
 ### Z jakim blokerem używać
 
-Rozszerzenie jest projektowane i testowane w parze z **uBlock Origin**.
+Rozszerzenie jest projektowane i testowane w parze z **uBlock Origin** oraz
+**uBlock Origin Lite** (testy regresji, pomiary RAM). Na artykule z
+wiadomosci.wp.pl karta z uBO Lite zajmuje ok. 105 MB — ramki reklam i
+śledzenia w ogóle się nie ładują (z AdBlockiem ok. 350 MB, bez blokera ponad
+1 GB; zob. „Co zjada RAM" niżej).
 
 ⚠️ **Nie łącz z AdBlockiem (getadblock.com)** — potwierdzony przypadek (2026-07,
 portale WP typu wiadomosci.wp.pl): przy włączonym AdBlocku zużycie RAM karty

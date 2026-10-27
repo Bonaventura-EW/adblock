@@ -1,5 +1,15 @@
 # Changelog
 
+## Repozytorium (2026-10-27) — bez nowej wersji rozszerzenia
+
+- Użytkownik przeszedł na **uBlock Origin Lite** (po ustaleniach z v6.24:
+  z uBO Lite artykuł z wiadomosci.wp.pl ~105 MB zamiast ~350–580 MB).
+  `SPRAWY.md`: S-17 rozwiązana (wiadomo, jaki bloker), S-21 czeka na
+  potwierdzenie spadku RAM-u, S-04 — dopisek.
+- README („Z jakim blokerem używać"): uBO Lite przetestowany, z wynikiem RAM.
+- CLAUDE.md: bloker użytkownika to uBO Lite (MV3/DNR) — wskazówka, od czego
+  zacząć, gdy po zmianie blokera wróci jakaś ściana.
+
 ## v6.24 (2026-10-27)
 
 ### Nowe

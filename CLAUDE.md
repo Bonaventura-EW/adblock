@@ -410,6 +410,10 @@ poprzedniej metody.
   v6.18; nieskończona pętla odsłaniania zdjęcia (my odsłaniamy, strona chowa)
   — bezpiecznik w v6.22 (zgłoszenie: tylko wiadomosci.wp.pl, 2 GB/min).
   Zawieszoną kartę popup pokazuje jako „nie odpowiada".
+- **Bloker użytkownika: uBlock Origin Lite** (od 2026-10-27, `SPRAWY.md`
+  S-17). uBO Lite to MV3 i reguły DNR — gdy reguła uBO Lite i nasza
+  (`rules.json`) trafią w ten sam adres, przeglądarka wybiera jedną; przy
+  ścianie, która wróciła po zmianie blokera, sprawdź najpierw to.
 - **Paywalle serwerowe** (np. Onet po X akapitach) — rozszerzenie ich NIE obchodzi.
   Jeśli tekst nie istnieje w HTML, nie ma czego odkrywać.
 - **Ściana w playerze wideo WP** („Wyłącz AdBlocka, aby obejrzeć materiał") —
